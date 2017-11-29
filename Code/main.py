@@ -66,8 +66,11 @@ else:
 if args.cuda:
     model = model.cuda()
 
-
-train.train(args, model)
+learning_rates = [0.001, 0.01, 0.1, 1, 10]
+for learning_rate in learning_rates:
+    print 'Learning Rate: ' + str(learning_rate)
+    args.lr = learning_rate
+    train.train(args, model)
 
 """
 filename = "../Snapshots/2017-11-26_19-04-25/"
