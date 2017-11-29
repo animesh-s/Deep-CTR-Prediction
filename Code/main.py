@@ -15,7 +15,7 @@ import train
 
 parser = argparse.ArgumentParser(description='CTR Predictor')
 # learning
-parser.add_argument('-lr', type=float, default=0.001, help='initial learning rate [default: 0.001]')
+parser.add_argument('-lr', type=str, default='0.00001,0.0001,0.001,0.01,0.1', help='comma-separated learning rates to use for training')
 parser.add_argument('-epochs', type=int, default=27000, help='number of epochs for train [default: 256]')
 parser.add_argument('-log-interval',  type=int, default=1000,   help='how many steps to wait before logging training status [default: 1]')
 parser.add_argument('-plot-interval',  type=int, default=500,   help='how many steps to wait before plotting training status [default: 1]')
@@ -48,8 +48,10 @@ args = parser.parse_args()
 
 # update args and print
 args.cuda = (not args.no_cuda) and torch.cuda.is_available(); del args.no_cuda
+args.lr = [float(k) for k in args.lr.split(',')]
 args.save_dir = os.path.join(args.save_dir, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 args.plot_dir = os.path.join(args.plot_dir, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+
 
 print("\nParameters:")
 for attr, value in sorted(args.__dict__.items()):
@@ -69,9 +71,9 @@ else:
 if args.cuda:
     model = model.cuda()
 
-#train.cross_validation(args, model)
+train.cross_validation(args, model)
 
-
+"""
 date = '2017-11-29_13-42-58'
 lr = '1e-05'
 steps = '27000'
@@ -79,6 +81,7 @@ filename = '../Snapshots/' + date + '/lr_' + lr + '/model_steps' + steps + '.pt'
 model = torch.load(filename)
 correct, wrong, accuracy, auc = train.evaluate(args, model)
 print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
+"""
 #correct, wrong, accuracy, auc = train.evaluatefull(args, model)
 #print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
 

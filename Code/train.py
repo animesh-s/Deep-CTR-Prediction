@@ -44,10 +44,7 @@ def timeSince(since, percent):
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
 
-def showPlot(points, plot_dir, learning_rate):
-    if not os.path.isdir(plot_dir): os.makedirs(plot_dir)
-    prefix = 'lr_' + str(learning_rate) + '.png'
-    save_path = os.path.join(plot_dir, prefix)
+def showPlot(points, save_path):
     plt.figure()
     plt.plot(points)
     plt.xlabel('Iterations', fontsize=12)
@@ -62,13 +59,13 @@ def variable(x):
     return Variable(torch.LongTensor([x]))
 
 
-def train(args, model):
+def train(args, model, lr):
     pos_count, neg_count = 0, 0
     start = time.time()
     plot_losses = []
     print_loss_total = 0    # Reset every args.log_interval
     plot_loss_total = 0     # Reset every args.plot_interval
-    model_optimizer = torch.optim.SGD(model.parameters(), lr = args.lr)
+    model_optimizer = torch.optim.SGD(model.parameters(), lr = lr)
     weight = torch.Tensor([[args.imbalance_factor, 1]])
     criterion = nn.CrossEntropyLoss(weight) #, ignore_index = 0)
     iter = 1
@@ -104,7 +101,7 @@ def train(args, model):
                         plot_loss_total = 0
                     if iter % args.save_interval == 0:
                         if not os.path.isdir(args.save_dir): os.makedirs(args.save_dir)
-                        lr_save_dir = os.path.join(args.save_dir, 'lr_' + str(args.lr))
+                        lr_save_dir = os.path.join(args.save_dir, 'lr_' + str(lr))
                         if not os.path.isdir(lr_save_dir): os.makedirs(lr_save_dir)
                         save_prefix = os.path.join(lr_save_dir, 'model')
                         save_path = '{}_steps{}.pt'.format(save_prefix, iter)
@@ -113,15 +110,16 @@ def train(args, model):
                         break
                     iter += 1
     print(pos_count, neg_count)
-    showPlot(plot_losses, args.plot_dir, args.lr)
+    if not os.path.isdir(args.plot_dir): os.makedirs(args.plot_dir)
+    prefix = 'lr_' + str(lr) + '.png'
+    save_path = os.path.join(args.plot_dir, prefix)
+    showPlot(plot_losses, save_path)
 
 
 def cross_validation(args, model):
-    learning_rates = [0.00001, 0.0001, 0.001, 0.01, 0.1]
-    for learning_rate in learning_rates:
+    for learning_rate in args.lr:
         print('Learning Rate:', learning_rate)
-        args.lr = learning_rate
-        train(args, model)
+        train(args, model, learning_rate)
 
 
 def evaluate(args, model):
