@@ -18,6 +18,9 @@ import torch
 import torch.nn as nn
 import warnings
 from torch.autograd import Variable
+from sklearn.metrics import roc_auc_score
+import pdb
+
 warnings.filterwarnings("ignore")
 
 
@@ -127,6 +130,7 @@ def cross_validation(args, model):
 def evaluate(args, model):
     pos_count, neg_count = 0, 0
     correct, wrong = 0, 0
+    true_labels, predicted_labels = [], []
     for date in dates:     
         filepath = '../Data/training3rd/imp.' + date + '.txt.bz2'
         with bz2.BZ2File(filepath) as f:
@@ -138,30 +142,35 @@ def evaluate(args, model):
                 elif true_label == 0:
                     neg_count += 1
                 else:
-                    pos_count += 1    
+                    pos_count += 1
+                true_labels.append(true_label)
                 output = model(line, dicts)
                 predicted_label = 0 if output.data[0][0] >= output.data[0][1] else 1
+                predicted_labels.append(predicted_label)
                 if predicted_label == true_label:
                     correct += 1
                 else:
                     wrong += 1
-    return float(correct) / (correct + wrong)
+    return float(correct) / (correct + wrong), roc_auc_score(true_labels, predicted_labels)
 
 
 def evaluatefull(args, model):
     correct, wrong = 0, 0
+    true_labels, predicted_labels = [], []
     for date in dates:     
         filepath = '../Data/training3rd/imp.' + date + '.txt.bz2'
         with bz2.BZ2File(filepath) as f:
             for line in f:
                 line = line.split('\n')[0].split('\t')
                 true_label = 1 if line[dicts[1]['bidid']] in dicts[0] else 0
+                true_labels, predicted_labels = [], []
                 output = model(line, dicts)
                 predicted_label = 0 if output.data[0][0] >= output.data[0][1] else 1
+                predicted_labels.append(predicted_label)
                 if predicted_label == true_label:
                     correct += 1
                 else:
                     wrong += 1
-    return float(correct) / (correct + wrong)
+    return float(correct) / (correct + wrong), roc_auc_score(true_labels, predicted_labels)
 
 
