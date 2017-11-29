@@ -52,9 +52,8 @@ def showPlot(points, plot_dir, learning_rate):
     plt.ylabel('NLL Loss', fontsize=12)
     plt.title('NLL Loss vs Number of iterations')
     plt.grid()
-    #date = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    #plt.savefig('training_curve_' + date, bbox_inches='tight')
-    plt.savefig(plot_dir+'/lr_'+str(learning_rate), bbox_inches='tight')
+    plot_dir = plot_dir + '/lr_' + str(learning_rate) + '.png'
+    plt.savefig(plot_dir, bbox_inches='tight')
     plt.close()
 
 
@@ -105,7 +104,7 @@ def train(args, model):
                     if iter % args.save_interval == 0:
                         if not os.path.isdir(args.save_dir): os.makedirs(args.save_dir)
                         models = [model]
-                        prefixes = ['model']
+                        prefixes = ['model_' + str(args.lr)]
                         for model, prefix in zip(models, prefixes):
                             save_prefix = os.path.join(args.save_dir, prefix)
                             save_path = '{}_steps{}.pt'.format(save_prefix, iter)
@@ -118,7 +117,7 @@ def train(args, model):
 
 
 def cross_validation(args, model):
-    learning_rates = [0.00001,0.0001, 0.001, 0.01, 0.1, 1]
+    learning_rates = [0.00001, 0.0001, 0.001, 0.01, 0.1]
     for learning_rate in learning_rates:
         print('Learning Rate:', learning_rate)
         args.lr = learning_rate

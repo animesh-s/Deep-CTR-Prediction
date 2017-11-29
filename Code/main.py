@@ -68,8 +68,6 @@ else:
 if args.cuda:
     model = model.cuda()
 
-
-#train.train(args, model)
 #train.cross_validation(args, model)
 
 filename = "../Snapshots/2017-11-29_03-26-42/"
