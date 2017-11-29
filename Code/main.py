@@ -78,6 +78,7 @@ print 'Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
 accuracy, auc = train.evaluatefull(args, model)
 print 'Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
 
+
 '''
 # train or predict
 if args.predict is not None:
