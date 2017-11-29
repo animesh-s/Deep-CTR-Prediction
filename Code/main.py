@@ -22,6 +22,9 @@ parser.add_argument('-plot-interval',  type=int, default=500,   help='how many s
 #parser.add_argument('-test-interval', type=int, default=100, help='how many steps to wait before testing [default: 100]')
 parser.add_argument('-save-interval', type=int, default=1000, help='how many steps to wait before saving [default:500]')
 parser.add_argument('-save-dir', type=str, default='../Snapshots', help='where to save the snapshots')
+parser.add_argument('-plot-dir', type=str, default='../Plots', help='where to save the plots')
+parser.add_argument('-factor', type=int, default=1, help='factor for feature embeddings')
+parser.add_argument('-imbalance-factor', type=int, default=5, help='class imbalance factor for training')
 # data 
 #parser.add_argument('-shuffle', action='store_true', default=False, help='shuffle the data every epoch' )
 # model
@@ -46,6 +49,7 @@ args = parser.parse_args()
 # update args and print
 args.cuda = (not args.no_cuda) and torch.cuda.is_available(); del args.no_cuda
 args.save_dir = os.path.join(args.save_dir, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+args.plot_dir = os.path.join(args.plot_dir, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + '.png')
 
 
 print("\nParameters:")
@@ -55,7 +59,7 @@ for attr, value in sorted(args.__dict__.items()):
 
 # model
 if args.snapshot is None:
-    model = model.LR()
+    model = model.LR(args.factor)
 else:
     print('\nLoading models from [%s]...' % args.snapshot)
     try:
@@ -66,18 +70,16 @@ else:
 if args.cuda:
     model = model.cuda()
 
-learning_rates = [0.001, 0.01, 0.1, 1, 10]
-for learning_rate in learning_rates:
-    print 'Learning Rate: ' + str(learning_rate)
-    args.lr = learning_rate
-    train.train(args, model)
 
-"""
-filename = "../Snapshots/2017-11-26_19-04-25/"
-step = '1000'
-model = torch.load(filename + 'model_steps' + step + '.pt')
-train.evaluateRandomly(args, model, n = 3)
-"""
+#train.train(args, model)
+#train.cross_validation(args, model)
+
+filename = "../Snapshots/2017-11-29_03-26-42/"
+steps = str(27000)
+model = torch.load(filename + 'model_steps' + steps + '.pt')
+print(train.evaluate(args, model))
+print(train.evaluatefull(args, model))
+
 
 '''
 # train or predict

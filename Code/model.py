@@ -7,35 +7,34 @@ Created on Sun Nov 26 20:25:05 2017
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.autograd import Variable
 
 torch.manual_seed(1)
 
 class  LR(nn.Module):
-    def __init__(self):
+    def __init__(self, factor):
         super(LR, self).__init__()
-        self.ip1_embed = nn.Embedding(256, 8)
-        self.ip2_embed = nn.Embedding(256, 8)
-        self.ip3_embed = nn.Embedding(256, 8)
-        self.regionid_embed = nn.Embedding(35, 6)
-        self.cityid_embed = nn.Embedding(370, 9)
-        self.adexchange_embed = nn.Embedding(9, 4)
-        self.url_embed = nn.Embedding(2, 1)
-        self.aurl_embed = nn.Embedding(2, 1)
-        self.adslotw_embed = nn.Embedding(21, 5)
-        self.adsloth_embed = nn.Embedding(14, 4)
-        self.adslotv_embed = nn.Embedding(7, 3)
-        self.adslotfp_embed = nn.Embedding(275, 9)
-        self.creativeid_embed = nn.Embedding(57, 6)
-        self.bidprice_embed = nn.Embedding(2, 1)
-        self.payprice_embed = nn.Embedding(295, 9)
-        self.userids_embed = nn.Embedding(69, 7)
-        self.linear = nn.Linear(89, 2)
+        self.ip1_embed = nn.Embedding(256, factor * 8)
+        self.ip2_embed = nn.Embedding(256, factor * 8)
+        self.ip3_embed = nn.Embedding(256, factor * 8)
+        self.regionid_embed = nn.Embedding(35, factor * 6)
+        self.cityid_embed = nn.Embedding(370, factor * 9)
+        self.adexchange_embed = nn.Embedding(9, factor * 4)
+        self.url_embed = nn.Embedding(2, factor * 1)
+        self.aurl_embed = nn.Embedding(2, factor * 1)
+        self.adslotw_embed = nn.Embedding(21, factor * 5)
+        self.adsloth_embed = nn.Embedding(14, factor * 4)
+        self.adslotv_embed = nn.Embedding(7, factor * 3)
+        self.adslotfp_embed = nn.Embedding(275, factor * 9)
+        self.creativeid_embed = nn.Embedding(57, factor * 6)
+        self.bidprice_embed = nn.Embedding(2, factor * 1)
+        self.payprice_embed = nn.Embedding(295, factor * 9)
+        self.userids_embed = nn.Embedding(69, factor * 7)
+        self.linear = nn.Linear(factor * 89, 2)
         
     def forward(self, line, dicts):
         x = self.feature(line, dicts)
-        return F.log_softmax(self.linear(x))
+        return self.linear(x)
 
     def feature(self, line, dicts):
         ip = line[dicts[1]['ip']].split('.')[:-1]
@@ -62,8 +61,8 @@ class  LR(nn.Module):
         payprice = self.payprice_embed(variable(dicts[3][8][line[dicts[1]['payprice']]]))
         userids = self.userids_embed(Variable(torch.LongTensor(userids)))
         userids = torch.mean(userids, 0).view(1, -1)
-        return torch.cat((ip1, ip2, ip3, url, aurl, regionid, cityid, adexchange,
-                          adslotw, adsloth, adslotv, adslotfp,
+        return torch.cat((ip1, ip2, ip3, url, aurl, regionid, cityid, 
+                          adexchange, adslotw, adsloth, adslotv, adslotfp,
                           creativeid, bidprice, payprice, userids), 1)
 
 
