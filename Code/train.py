@@ -163,7 +163,7 @@ def evaluatefull(args, model):
             for line in f:
                 line = line.split('\n')[0].split('\t')
                 true_label = 1 if line[dicts[1]['bidid']] in dicts[0] else 0
-                true_labels, predicted_labels = [], []
+                true_labels.append(true_label)
                 output = model(line, dicts)
                 predicted_label = 0 if output.data[0][0] >= output.data[0][1] else 1
                 predicted_labels.append(predicted_label)
