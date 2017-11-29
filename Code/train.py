@@ -59,7 +59,6 @@ def variable(x):
 
 
 def train(args, model):
-    
     pos_count, neg_count = 0, 0
     start = time.time()
     plot_losses = []
@@ -71,20 +70,11 @@ def train(args, model):
     iter = 1
     
     while iter < args.epochs:
-        
         print(iter)
-    
-        for date in dates:
-            
-            if iter >= args.epochs:
-                break       
-            
+        for date in dates:     
             filepath = '../Data/training3rd/imp.' + date + '.txt.bz2'
             with bz2.BZ2File(filepath) as f:
                 for line in f:
-                    
-                    #print(iter)
-                    
                     line = line.split('\n')[0].split('\t')
                     true_label = 1 if line[dicts[1]['bidid']] in dicts[0] else 0
                     
@@ -95,8 +85,8 @@ def train(args, model):
                     else:
                         pos_count += 1    
                     
+                    model_optimizer.zero_grad()
                     output = model(line, dicts)
-                    
                     loss = criterion(output, variable(true_label))
                     loss.backward()
                     model_optimizer.step()
