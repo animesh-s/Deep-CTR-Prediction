@@ -41,7 +41,7 @@ def timeSince(since, percent):
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
 
-def showPlot(points, plot_dir):
+def showPlot(points, plot_dir, learning_rate):
     #if not os.path.isdir(plot_dir): os.makedirs(plot_dir)
     #save_prefix = os.path.join(plot_dir, prefix)
     #                        save_path = '{}_steps{}.pt'.format(save_prefix, iter)
@@ -54,7 +54,7 @@ def showPlot(points, plot_dir):
     plt.grid()
     #date = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     #plt.savefig('training_curve_' + date, bbox_inches='tight')
-    plt.savefig(plot_dir, bbox_inches='tight')
+    plt.savefig(plot_dir+'/lr_'+str(learning_rate), bbox_inches='tight')
     plt.close()
 
 
@@ -114,11 +114,11 @@ def train(args, model):
                         break
                     iter += 1
     print(pos_count, neg_count)
-    showPlot(plot_losses, args.plot_dir)
+    showPlot(plot_losses, args.plot_dir, args.lr)
 
 
 def cross_validation(args, model):
-    learning_rates = [0.0001, 0.001, 0.01, 0.1, 1, 10]
+    learning_rates = [0.00001,0.0001, 0.001, 0.01, 0.1, 1]
     for learning_rate in learning_rates:
         print('Learning Rate:', learning_rate)
         args.lr = learning_rate

@@ -49,8 +49,6 @@ args = parser.parse_args()
 # update args and print
 args.cuda = (not args.no_cuda) and torch.cuda.is_available(); del args.no_cuda
 args.save_dir = os.path.join(args.save_dir, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
-args.plot_dir = os.path.join(args.plot_dir, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + '.png')
-
 
 print("\nParameters:")
 for attr, value in sorted(args.__dict__.items()):
