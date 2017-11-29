@@ -45,18 +45,16 @@ def timeSince(since, percent):
 
 
 def showPlot(points, plot_dir, learning_rate):
-    #if not os.path.isdir(plot_dir): os.makedirs(plot_dir)
-    #save_prefix = os.path.join(plot_dir, prefix)
-    #                        save_path = '{}_steps{}.pt'.format(save_prefix, iter)
-    #                        torch.save(model, save_path)
+    if not os.path.isdir(plot_dir): os.makedirs(plot_dir)
+    prefix = 'lr_' + str(learning_rate) + '.png'
+    save_path = os.path.join(plot_dir, prefix)
     plt.figure()
     plt.plot(points)
     plt.xlabel('Iterations', fontsize=12)
     plt.ylabel('NLL Loss', fontsize=12)
     plt.title('NLL Loss vs Number of iterations')
     plt.grid()
-    plot_dir = plot_dir + '/lr_' + str(learning_rate) + '.png'
-    plt.savefig(plot_dir, bbox_inches='tight')
+    plt.savefig(save_path, bbox_inches='tight')
     plt.close()
 
 
@@ -106,12 +104,11 @@ def train(args, model):
                         plot_loss_total = 0
                     if iter % args.save_interval == 0:
                         if not os.path.isdir(args.save_dir): os.makedirs(args.save_dir)
-                        models = [model]
-                        prefixes = ['model_' + str(args.lr)]
-                        for model, prefix in zip(models, prefixes):
-                            save_prefix = os.path.join(args.save_dir, prefix)
-                            save_path = '{}_steps{}.pt'.format(save_prefix, iter)
-                            torch.save(model, save_path)
+                        lr_save_dir = os.path.join(args.save_dir, 'lr_' + str(args.lr))
+                        if not os.path.isdir(lr_save_dir): os.makedirs(lr_save_dir)
+                        save_prefix = os.path.join(lr_save_dir, 'model')
+                        save_path = '{}_steps{}.pt'.format(save_prefix, iter)
+                        torch.save(model, save_path)
                     if iter == args.epochs:
                         break
                     iter += 1
@@ -151,14 +148,14 @@ def evaluate(args, model):
                     correct += 1
                 else:
                     wrong += 1
-    return float(correct) / (correct + wrong), roc_auc_score(true_labels, predicted_labels)
+    return correct, wrong, float(correct) / (correct + wrong), roc_auc_score(true_labels, predicted_labels)
 
 
 def evaluatefull(model):
     correct, wrong = 0, 0
     true_labels, predicted_labels = [], []
     iter = 1
-    for date in dates[1:]:
+    for date in dates:
         print(date, correct, wrong)
         filepath = '../Data/training3rd/imp.' + date + '.txt.bz2'
         with bz2.BZ2File(filepath) as f:
@@ -175,6 +172,6 @@ def evaluatefull(model):
                 else:
                     wrong += 1
                 iter += 1
-    return float(correct) / (correct + wrong), roc_auc_score(true_labels, predicted_labels)
+    return correct, wrong, float(correct) / (correct + wrong), roc_auc_score(true_labels, predicted_labels)
 
 

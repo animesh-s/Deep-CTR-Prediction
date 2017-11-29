@@ -49,6 +49,7 @@ args = parser.parse_args()
 # update args and print
 args.cuda = (not args.no_cuda) and torch.cuda.is_available(); del args.no_cuda
 args.save_dir = os.path.join(args.save_dir, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+args.plot_dir = os.path.join(args.plot_dir, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 
 print("\nParameters:")
 for attr, value in sorted(args.__dict__.items()):
@@ -70,13 +71,16 @@ if args.cuda:
 
 #train.cross_validation(args, model)
 
-filename = "../Snapshots/2017-11-29_09-44-40/"
-steps = str(27000)
-model = torch.load(filename + 'model_0.0001_steps' + steps + '.pt')
-accuracy, auc = train.evaluate(args, model)
-print 'Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
-accuracy, auc = train.evaluatefull(args, model)
-print 'Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
+
+date = '2017-11-29_13-42-58'
+lr = '1e-05'
+steps = '27000'
+filename = '../Snapshots/' + date + '/lr_' + lr + '/model_steps' + steps + '.pt'
+model = torch.load(filename)
+correct, wrong, accuracy, auc = train.evaluate(args, model)
+print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
+#correct, wrong, accuracy, auc = train.evaluatefull(args, model)
+#print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
 
 
 '''
