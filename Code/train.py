@@ -18,6 +18,9 @@ import torch
 import torch.nn as nn
 import warnings
 from torch.autograd import Variable
+from sklearn.metrics import roc_auc_score
+import pdb
+
 warnings.filterwarnings("ignore")
 
 
@@ -41,7 +44,7 @@ def timeSince(since, percent):
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
 
-def showPlot(points, plot_dir):
+def showPlot(points, plot_dir, learning_rate):
     #if not os.path.isdir(plot_dir): os.makedirs(plot_dir)
     #save_prefix = os.path.join(plot_dir, prefix)
     #                        save_path = '{}_steps{}.pt'.format(save_prefix, iter)
@@ -52,8 +55,7 @@ def showPlot(points, plot_dir):
     plt.ylabel('NLL Loss', fontsize=12)
     plt.title('NLL Loss vs Number of iterations')
     plt.grid()
-    #date = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    #plt.savefig('training_curve_' + date, bbox_inches='tight')
+    plot_dir = plot_dir + '/lr_' + str(learning_rate) + '.png'
     plt.savefig(plot_dir, bbox_inches='tight')
     plt.close()
 
@@ -105,7 +107,7 @@ def train(args, model):
                     if iter % args.save_interval == 0:
                         if not os.path.isdir(args.save_dir): os.makedirs(args.save_dir)
                         models = [model]
-                        prefixes = ['model']
+                        prefixes = ['model_' + str(args.lr)]
                         for model, prefix in zip(models, prefixes):
                             save_prefix = os.path.join(args.save_dir, prefix)
                             save_path = '{}_steps{}.pt'.format(save_prefix, iter)
@@ -114,20 +116,21 @@ def train(args, model):
                         break
                     iter += 1
     print(pos_count, neg_count)
-    showPlot(plot_losses, args.plot_dir)
+    showPlot(plot_losses, args.plot_dir, args.lr)
 
 
 def cross_validation(args, model):
-    learning_rates = [0.001, 0.01, 0.1, 1, 10]
+    learning_rates = [0.00001, 0.0001, 0.001, 0.01, 0.1]
     for learning_rate in learning_rates:
         print('Learning Rate:', learning_rate)
         args.lr = learning_rate
-        train.train(args, model)
+        train(args, model)
 
 
 def evaluate(args, model):
     pos_count, neg_count = 0, 0
     correct, wrong = 0, 0
+    true_labels, predicted_labels = [], []
     for date in dates:     
         filepath = '../Data/training3rd/imp.' + date + '.txt.bz2'
         with bz2.BZ2File(filepath) as f:
@@ -139,18 +142,21 @@ def evaluate(args, model):
                 elif true_label == 0:
                     neg_count += 1
                 else:
-                    pos_count += 1    
+                    pos_count += 1
+                true_labels.append(true_label)
                 output = model(line, dicts)
                 predicted_label = 0 if output.data[0][0] >= output.data[0][1] else 1
+                predicted_labels.append(predicted_label)
                 if predicted_label == true_label:
                     correct += 1
                 else:
                     wrong += 1
-    return float(correct) / (correct + wrong)
+    return float(correct) / (correct + wrong), roc_auc_score(true_labels, predicted_labels)
 
 
 def evaluatefull(model):
     correct, wrong = 0, 0
+    true_labels, predicted_labels = [], []
     iter = 1
     for date in dates[1:]:
         print(date, correct, wrong)
@@ -160,13 +166,15 @@ def evaluatefull(model):
                 print(iter)
                 line = line.split('\n')[0].split('\t')
                 true_label = 1 if line[dicts[1]['bidid']] in dicts[0] else 0
+                true_labels.append(true_label)
                 output = model(line, dicts)
                 predicted_label = 0 if output.data[0][0] >= output.data[0][1] else 1
+                predicted_labels.append(predicted_label)
                 if predicted_label == true_label:
                     correct += 1
                 else:
                     wrong += 1
                 iter += 1
-    return float(correct) / (correct + wrong)
+    return float(correct) / (correct + wrong), roc_auc_score(true_labels, predicted_labels)
 
 
