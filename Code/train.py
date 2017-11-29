@@ -118,11 +118,11 @@ def train(args, model):
 
 
 def cross_validation(args, model):
-    learning_rates = [0.001, 0.01, 0.1, 1, 10]
+    learning_rates = [0.0001, 0.001, 0.01, 0.1, 1, 10]
     for learning_rate in learning_rates:
         print('Learning Rate:', learning_rate)
         args.lr = learning_rate
-        train.train(args, model)
+        train(args, model)
 
 
 def evaluate(args, model):
