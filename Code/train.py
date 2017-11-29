@@ -70,7 +70,7 @@ def train(args, model):
     plot_loss_total = 0     # Reset every args.plot_interval
     model_optimizer = torch.optim.SGD(model.parameters(), lr = args.lr)
     weight = torch.Tensor([[args.imbalance_factor, 1]])
-    criterion = nn.CrossEntropyLoss(weight)
+    criterion = nn.CrossEntropyLoss(weight) #, ignore_index = 0)
     iter = 1
     while iter < args.epochs:
         print('iteration number:', iter)
@@ -96,7 +96,7 @@ def train(args, model):
                     if iter % args.log_interval == 0:
                         print_loss_avg = print_loss_total / args.log_interval
                         print_loss_total = 0
-                        print('%s (%d %d%%) %.4f' % (timeSince(start, float(iter) / args.epochs),
+                        print('%s (%d %d%%) %.10f' % (timeSince(start, float(iter) / args.epochs),
                                    iter, float(iter) / args.epochs * 100, print_loss_avg))
                     if iter % args.plot_interval == 0:
                         plot_loss_avg = plot_loss_total / args.plot_interval
@@ -149,12 +149,15 @@ def evaluate(args, model):
     return float(correct) / (correct + wrong)
 
 
-def evaluatefull(args, model):
+def evaluatefull(model):
     correct, wrong = 0, 0
-    for date in dates:     
+    iter = 1
+    for date in dates[1:]:
+        print(date, correct, wrong)
         filepath = '../Data/training3rd/imp.' + date + '.txt.bz2'
         with bz2.BZ2File(filepath) as f:
             for line in f:
+                print(iter)
                 line = line.split('\n')[0].split('\t')
                 true_label = 1 if line[dicts[1]['bidid']] in dicts[0] else 0
                 output = model(line, dicts)
@@ -163,6 +166,7 @@ def evaluatefull(args, model):
                     correct += 1
                 else:
                     wrong += 1
+                iter += 1
     return float(correct) / (correct + wrong)
 
 

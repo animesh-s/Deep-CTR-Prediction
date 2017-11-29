@@ -74,11 +74,11 @@ if args.cuda:
 #train.train(args, model)
 #train.cross_validation(args, model)
 
-filename = "../Snapshots/2017-11-29_03-26-42/"
+filename = "../Snapshots/2017-11-29_03-59-43/"
 steps = str(27000)
 model = torch.load(filename + 'model_steps' + steps + '.pt')
 print(train.evaluate(args, model))
-print(train.evaluatefull(args, model))
+#print(train.evaluatefull(model))
 
 
 '''
