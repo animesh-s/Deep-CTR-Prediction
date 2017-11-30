@@ -16,9 +16,9 @@ import train
 parser = argparse.ArgumentParser(description='CTR Predictor')
 # learning
 parser.add_argument('-lr', type=str, default='0.00001,0.0001,0.001,0.01,0.1', help='comma-separated learning rates to use for training')
-parser.add_argument('-weight-decay', type=str, default='0.00001,0.00005,0.0001,0.0005,0.001', help='comma-separated weight decays to use for training')
+parser.add_argument('-weight-decay', type=str, default='0.001, 0.01, 0.1, 1, 10', help='comma-separated weight decays to use for training')
 parser.add_argument('-epochs', type=int, default=27000, help='number of epochs for train [default: 256]')
-parser.add_argument('-log-interval',  type=int, default=1000,   help='how many steps to wait before logging training status [default: 1]')
+parser.add_argument('-log-interval',  type=int, default=30000,   help='how many steps to wait before logging training status [default: 1]')
 parser.add_argument('-plot-interval',  type=int, default=500,   help='how many steps to wait before plotting training status [default: 1]')
 #parser.add_argument('-test-interval', type=int, default=100, help='how many steps to wait before testing [default: 100]')
 parser.add_argument('-save-interval', type=int, default=1000, help='how many steps to wait before saving [default:500]')
@@ -61,6 +61,7 @@ for attr, value in sorted(args.__dict__.items()):
 
 
 # model
+"""
 if args.snapshot is None:
     model = model.LR(args)
 else:
@@ -72,8 +73,9 @@ else:
 
 if args.cuda:
     model = model.cuda()
+"""
 
-train.cross_validation(args, model)
+train.cross_validation(args)
 
 '''
 # train or predict

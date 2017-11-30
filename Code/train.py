@@ -11,6 +11,7 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import math
+import model
 import os
 import pickle
 import time
@@ -117,13 +118,14 @@ def train(args, model, lr, weight_decay):
     return model
 
 
-def cross_validation(args, model):
+def cross_validation(args):
     for learning_rate in args.lr:
         print('Learning Rate:', learning_rate)
         for weight_decay in args.weight_decay:
             print('Weight Decay: ', weight_decay)
-            model = train(args, model, learning_rate, weight_decay)
-            correct, wrong, accuracy, auc = evaluate(args, model)
+            LRmodel = model.LR(args)
+            LRmodel = train(args, LRmodel, learning_rate, weight_decay)
+            correct, wrong, accuracy, auc = evaluate(args, LRmodel)
             print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
 
 
