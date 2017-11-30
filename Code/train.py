@@ -59,13 +59,13 @@ def variable(x):
     return Variable(torch.LongTensor([x]))
 
 
-def train(args, model, lr):
+def train(args, model, lr, weight_decay):
     pos_count, neg_count = 0, 0
     start = time.time()
     plot_losses = []
     print_loss_total = 0    # Reset every args.log_interval
     plot_loss_total = 0     # Reset every args.plot_interval
-    model_optimizer = torch.optim.SGD(model.parameters(), lr = lr)
+    model_optimizer = torch.optim.SGD(model.parameters(), lr = lr, weight_decay = weight_decay)
     weight = torch.Tensor([[args.imbalance_factor, 1]])
     criterion = nn.CrossEntropyLoss(weight) #, ignore_index = 0)
     iter = 1
@@ -103,7 +103,7 @@ def train(args, model, lr):
                         if not os.path.isdir(args.save_dir): os.makedirs(args.save_dir)
                         lr_save_dir = os.path.join(args.save_dir, 'lr_' + str(lr))
                         if not os.path.isdir(lr_save_dir): os.makedirs(lr_save_dir)
-                        save_prefix = os.path.join(lr_save_dir, 'model')
+                        save_prefix = os.path.join(lr_save_dir, 'model_' + str(weight_decay))
                         save_path = '{}_steps{}.pt'.format(save_prefix, iter)
                         torch.save(model, save_path)
                     if iter == args.epochs:
@@ -114,12 +114,17 @@ def train(args, model, lr):
     prefix = 'lr_' + str(lr) + '.png'
     save_path = os.path.join(args.plot_dir, prefix)
     showPlot(plot_losses, save_path)
+    return model
 
 
 def cross_validation(args, model):
     for learning_rate in args.lr:
         print('Learning Rate:', learning_rate)
-        train(args, model, learning_rate)
+        for weight_decay in args.weight_decay:
+            print('Weight Decay: ', weight_decay)
+            model = train(args, model, learning_rate, weight_decay)
+            correct, wrong, accuracy, auc = evaluate(args, model)
+            print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
 
 
 def evaluate(args, model):
