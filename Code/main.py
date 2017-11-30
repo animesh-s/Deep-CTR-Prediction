@@ -36,7 +36,7 @@ parser.add_argument('-imbalance-factor', type=int, default=1, help='class imbala
 #parser.add_argument('-kernel-sizes', type=str, default='2,3,4,5', help='comma-separated kernel size to use for convolution')
 #parser.add_argument('-hidden-dim', type=int, default=128, help='number of hidden dimension [default: 256]')
 #parser.add_argument('-num-layers', type=int, default=1, help='number of hidden layers in RNN [default: 1]')
-#parser.add_argument('-static', action='store_true', default=False, help='fix the embedding')
+parser.add_argument('-static', action='store_true', default=False, help='fix the embedding')
 # device
 #parser.add_argument('-device', type=int, default=-1, help='device to use for iterate data, -1 mean cpu [default: -1]')
 parser.add_argument('-no-cuda', action='store_true', default=False, help='disable the gpu' )
@@ -62,7 +62,7 @@ for attr, value in sorted(args.__dict__.items()):
 
 # model
 if args.snapshot is None:
-    model = model.LR(args.factor)
+    model = model.LR(args)
 else:
     print('\nLoading models from [%s]...' % args.snapshot)
     try:

@@ -12,8 +12,10 @@ from torch.autograd import Variable
 torch.manual_seed(1)
 
 class  LR(nn.Module):
-    def __init__(self, factor):
+    def __init__(self, args):
         super(LR, self).__init__()
+        self.args = args
+        factor = args.factor
         self.ip1_embed = nn.Embedding(256, factor * 8)
         self.ip2_embed = nn.Embedding(256, factor * 8)
         self.ip3_embed = nn.Embedding(256, factor * 8)
@@ -34,6 +36,8 @@ class  LR(nn.Module):
         
     def forward(self, line, dicts):
         x = self.feature(line, dicts)
+        if self.args.static:
+            x = Variable(x.data)
         return self.linear(x)
 
     def feature(self, line, dicts):
