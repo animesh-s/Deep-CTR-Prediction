@@ -60,7 +60,7 @@ def variable(x):
     return Variable(torch.LongTensor([x]))
 
 
-def train(args, model, lr, weight_decay, factor):
+def train(args, model, lr, weight_decay):
     pos_count, neg_count = 0, 0
     start = time.time()
     plot_losses = []
@@ -127,7 +127,7 @@ def cross_validation(args):
                 print('Factor: ', factor)
                 args.factor = factor
                 LRmodel = model.LR(args)
-                LRmodel = train(args, LRmodel, learning_rate, weight_decay, factor)
+                LRmodel = train(args, LRmodel, learning_rate, weight_decay)
                 correct, wrong, accuracy, auc = evaluate(args, LRmodel)
                 print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
 
