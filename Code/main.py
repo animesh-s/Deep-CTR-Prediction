@@ -21,10 +21,10 @@ parser.add_argument('-epochs', type=int, default=27000, help='number of epochs f
 parser.add_argument('-log-interval',  type=int, default=30000,   help='how many steps to wait before logging training status [default: 1]')
 parser.add_argument('-plot-interval',  type=int, default=500,   help='how many steps to wait before plotting training status [default: 1]')
 #parser.add_argument('-test-interval', type=int, default=100, help='how many steps to wait before testing [default: 100]')
-parser.add_argument('-save-interval', type=int, default=1000, help='how many steps to wait before saving [default:500]')
+parser.add_argument('-save-interval', type=int, default=30000, help='how many steps to wait before saving [default:500]')
 parser.add_argument('-save-dir', type=str, default='../Snapshots', help='where to save the snapshots')
 parser.add_argument('-plot-dir', type=str, default='../Plots', help='where to save the plots')
-parser.add_argument('-factor', type=int, default=1, help='factor for feature embeddings')
+parser.add_argument('-factors', type=str, default='5, 10, 20, 50', help='factor for feature embeddings')
 parser.add_argument('-imbalance-factor', type=int, default=1, help='class imbalance factor for training')
 # data 
 #parser.add_argument('-shuffle', action='store_true', default=False, help='shuffle the data every epoch' )
@@ -51,6 +51,7 @@ args = parser.parse_args()
 args.cuda = (not args.no_cuda) and torch.cuda.is_available(); del args.no_cuda
 args.lr = [float(k) for k in args.lr.split(',')]
 args.weight_decay = [float(k) for k in args.weight_decay.split(',')]
+args.factors = [int(k) for k in args.factors.split(',')]
 args.save_dir = os.path.join(args.save_dir, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 args.plot_dir = os.path.join(args.plot_dir, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 

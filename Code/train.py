@@ -123,10 +123,13 @@ def cross_validation(args):
         print('Learning Rate:', learning_rate)
         for weight_decay in args.weight_decay:
             print('Weight Decay: ', weight_decay)
-            LRmodel = model.LR(args)
-            LRmodel = train(args, LRmodel, learning_rate, weight_decay)
-            correct, wrong, accuracy, auc = evaluate(args, LRmodel)
-            print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
+            for factor in args.factors:
+                print('Factor: ', factor)
+                args.factor = factor
+                LRmodel = model.LR(args)
+                LRmodel = train(args, LRmodel, learning_rate, weight_decay)
+                correct, wrong, accuracy, auc = evaluate(args, LRmodel)
+                print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
 
 
 def evaluate(args, model):
