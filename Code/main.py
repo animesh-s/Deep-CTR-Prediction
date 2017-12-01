@@ -10,13 +10,12 @@ import os
 import argparse
 import datetime
 import torch
-import model
 import train
 
 parser = argparse.ArgumentParser(description='CTR Predictor')
 # learning
-parser.add_argument('-lr', type=str, default='0.00001,0.0001,0.001,0.01,0.1', help='comma-separated learning rates to use for training')
-parser.add_argument('-weight-decay', type=str, default='0.001, 0.01, 0.1, 1, 10', help='comma-separated weight decays to use for training')
+parser.add_argument('-lr', type=str, default='0.1,1,10', help='comma-separated learning rates to use for training')
+parser.add_argument('-weight-decay', type=str, default='0.001, 0.0001, 0.00001', help='comma-separated weight decays to use for training')
 parser.add_argument('-epochs', type=int, default=27000, help='number of epochs for train [default: 256]')
 parser.add_argument('-log-interval',  type=int, default=30000,   help='how many steps to wait before logging training status [default: 1]')
 parser.add_argument('-plot-interval',  type=int, default=500,   help='how many steps to wait before plotting training status [default: 1]')
@@ -24,7 +23,7 @@ parser.add_argument('-plot-interval',  type=int, default=500,   help='how many s
 parser.add_argument('-save-interval', type=int, default=30000, help='how many steps to wait before saving [default:500]')
 parser.add_argument('-save-dir', type=str, default='../Snapshots', help='where to save the snapshots')
 parser.add_argument('-plot-dir', type=str, default='../Plots', help='where to save the plots')
-parser.add_argument('-factors', type=str, default='5, 10, 20, 50', help='factor for feature embeddings')
+parser.add_argument('-factors', type=str, default='1', help='factor for feature embeddings')
 parser.add_argument('-imbalance-factor', type=int, default=1, help='class imbalance factor for training')
 # data 
 #parser.add_argument('-shuffle', action='store_true', default=False, help='shuffle the data every epoch' )
