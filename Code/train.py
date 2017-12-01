@@ -78,6 +78,8 @@ def train(args, model, lr, weight_decay):
             with bz2.BZ2File(filepath) as f:
                 for line in f:
                     line = line.split('\n')[0].split('\t')
+                    if line[dicts[1]['bidid']] in dicts[0][1]:
+                        continue
                     true_label = 1 if line[dicts[1]['bidid']] in dicts[0][0] else 0
                     if (pos_count == 0 or float(neg_count) / pos_count > args.imbalance_factor) and true_label == 0:
                         continue
