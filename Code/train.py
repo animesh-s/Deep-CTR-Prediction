@@ -70,6 +70,7 @@ def train(args, model, lr, weight_decay):
     weight = torch.Tensor([[args.imbalance_factor, 1]])
     criterion = nn.CrossEntropyLoss(weight) #, ignore_index = 0)
     iter = 1
+    seen_bidids = set()
     while iter < args.epochs:
         print('iteration number:', iter)
         for date in dates:     
@@ -77,13 +78,14 @@ def train(args, model, lr, weight_decay):
             with bz2.BZ2File(filepath) as f:
                 for line in f:
                     line = line.split('\n')[0].split('\t')
-                    true_label = 1 if line[dicts[1]['bidid']] in dicts[0] else 0
+                    true_label = 1 if line[dicts[1]['bidid']] in dicts[0][0] else 0
                     if (pos_count == 0 or float(neg_count) / pos_count > args.imbalance_factor) and true_label == 0:
                         continue
                     elif true_label == 0:
                         neg_count += 1
                     else:
-                        pos_count += 1    
+                        pos_count += 1
+                    seen_bidids.add(line[dicts[1]['bidid']])
                     model_optimizer.zero_grad()
                     output = model(line, dicts)
                     loss = criterion(output, variable(true_label))
@@ -115,7 +117,7 @@ def train(args, model, lr, weight_decay):
     prefix = 'lr_' + str(lr) + '.png'
     save_path = os.path.join(args.plot_dir, prefix)
     showPlot(plot_losses, save_path)
-    return model
+    return model, seen_bidids
 
 
 def cross_validation(args):
@@ -127,12 +129,12 @@ def cross_validation(args):
                 print('Factor: ', factor)
                 args.factor = factor
                 LRmodel = model.LR(args)
-                LRmodel = train(args, LRmodel, learning_rate, weight_decay)
-                correct, wrong, accuracy, auc = evaluate(args, LRmodel)
+                LRmodel, seen_bidids = train(args, LRmodel, learning_rate, weight_decay)
+                correct, wrong, accuracy, auc = evaluate(args, LRmodel, seen_bidids)
                 print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
 
 
-def evaluate(args, model):
+def evaluate(args, model, seen_bidids):
     pos_count, neg_count = 0, 0
     correct, wrong = 0, 0
     true_labels, predicted_labels = [], []
@@ -141,7 +143,9 @@ def evaluate(args, model):
         with bz2.BZ2File(filepath) as f:
             for line in f:
                 line = line.split('\n')[0].split('\t')
-                true_label = 1 if line[dicts[1]['bidid']] in dicts[0] else 0
+                if line[dicts[1]['bidid']] in seen_bidids:
+                    continue
+                true_label = 1 if line[dicts[1]['bidid']] in dicts[0][1] else 0
                 if (pos_count == 0 or float(neg_count) / pos_count > args.imbalance_factor) and true_label == 0:
                     continue
                 elif true_label == 0:
