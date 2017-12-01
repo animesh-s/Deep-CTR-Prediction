@@ -6,6 +6,7 @@ Created on Sun Nov 26 21:01:07 2017
 """
 
 import bz2
+import numpy as np
 import pickle
 
 def read_data(filepath):
@@ -26,6 +27,19 @@ def get_clkbidids():
                 line = line.split('\n')[0].split('\t')
                 clkbidids.append(line[0])
     return set(clkbidids)
+
+
+def split_clkbidids(clkbidids):
+    np.random.seed(1)
+    size = len(clkbidids)
+    ind = np.arange(size)
+    np.random.shuffle(ind)
+    clkbidids = np.asarray(list(clkbidids))[ind]
+    split = np.split(clkbidids, [int(0.8*size), size])
+    train_clkbidids = set(list(split[0]))
+    valid_clkbidids = set(list(split[1]))
+    clkbidids = [train_clkbidids, valid_clkbidids]
+    return clkbidids
 
 
 def update_set_list(row):
@@ -54,6 +68,7 @@ keys = ['bidid', 'timestamp', 'logtype', 'ipinyouid', 'useragent', 'ip', \
 key2ind = dict((k, i) for i, k in enumerate(keys))
 
 clkbidids = get_clkbidids()
+clkbidids = split_clkbidids(clkbidids)
 
 regionids, cityids, adslotws, adsloths = set(), set(), set(), set()
 adslotvs, adslotfps, creativeids, bidprices = set(), set(), set(), set()

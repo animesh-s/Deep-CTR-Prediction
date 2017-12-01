@@ -112,7 +112,7 @@ def train(args, model, lr, weight_decay):
                     if iter == args.epochs:
                         break
                     iter += 1
-    print(pos_count, neg_count)
+    print('pos_count:', pos_count, 'neg_count:', neg_count)
     if not os.path.isdir(args.plot_dir): os.makedirs(args.plot_dir)
     prefix = 'lr_' + str(lr) + '.png'
     save_path = os.path.join(args.plot_dir, prefix)
