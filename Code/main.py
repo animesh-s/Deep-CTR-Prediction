@@ -14,11 +14,12 @@ import train
 
 parser = argparse.ArgumentParser(description='CTR Predictor')
 # learning
-parser.add_argument('-lr', type=str, default='0.1,1,10', help='comma-separated learning rates to use for training')
-parser.add_argument('-weight-decay', type=str, default='0.001, 0.0001, 0.00001', help='comma-separated weight decays to use for training')
+parser.add_argument('-lr', type=str, default='0.1', help='comma-separated learning rates to use for training')
+parser.add_argument('-weight-decay', type=str, default='0.001', help='comma-separated weight decays to use for training')
 parser.add_argument('-epochs', type=int, default=27000, help='number of epochs for train [default: 256]')
-parser.add_argument('-log-interval',  type=int, default=30000,   help='how many steps to wait before logging training status [default: 1]')
+parser.add_argument('-log-interval',  type=int, default=1000,   help='how many steps to wait before logging training status [default: 1]')
 parser.add_argument('-plot-interval',  type=int, default=500,   help='how many steps to wait before plotting training status [default: 1]')
+parser.add_argument('-batch-size', type=int, default=64, help='number of examples in a batch [default:32]')
 #parser.add_argument('-test-interval', type=int, default=100, help='how many steps to wait before testing [default: 100]')
 parser.add_argument('-save-interval', type=int, default=30000, help='how many steps to wait before saving [default:500]')
 parser.add_argument('-save-dir', type=str, default='../Snapshots', help='where to save the snapshots')
@@ -28,11 +29,11 @@ parser.add_argument('-imbalance-factor', type=int, default=1, help='class imbala
 # data 
 #parser.add_argument('-shuffle', action='store_true', default=False, help='shuffle the data every epoch' )
 # model
-#parser.add_argument('-dropout', type=float, default=0.1, help='the probability for dropout [default: 0.1]')
+parser.add_argument('-dropout', type=float, default=0.1, help='the probability for dropout [default: 0.1]')
 #parser.add_argument('-max-norm', type=float, default=3.0, help='l2 constraint of parameters [default: 3.0]')
-#parser.add_argument('-embed-dim', type=int, default=128, help='number of embedding dimension [default: 128]')
-#parser.add_argument('-kernel-num', type=int, default=100, help='number of each kind of kernel')
-#parser.add_argument('-kernel-sizes', type=str, default='2,3,4,5', help='comma-separated kernel size to use for convolution')
+parser.add_argument('-embed-dim', type=int, default=128, help='number of embedding dimension [default: 128]')
+parser.add_argument('-kernel-num', type=int, default=500, help='number of each kind of kernel')
+parser.add_argument('-kernel-sizes', type=str, default='2,3,4,5', help='comma-separated kernel size to use for convolution')
 #parser.add_argument('-hidden-dim', type=int, default=128, help='number of hidden dimension [default: 256]')
 #parser.add_argument('-num-layers', type=int, default=1, help='number of hidden layers in RNN [default: 1]')
 parser.add_argument('-static', action='store_true', default=False, help='fix the embedding')
@@ -48,6 +49,7 @@ args = parser.parse_args()
 
 # update args and print
 args.cuda = (not args.no_cuda) and torch.cuda.is_available(); del args.no_cuda
+args.kernel_sizes = [int(k) for k in args.kernel_sizes.split(',')]
 args.lr = [float(k) for k in args.lr.split(',')]
 args.weight_decay = [float(k) for k in args.weight_decay.split(',')]
 args.factors = [int(k) for k in args.factors.split(',')]
@@ -75,7 +77,8 @@ if args.cuda:
     model = model.cuda()
 """
 
-train.cross_validation(args)
+modeltype = 'LR'
+train.cross_validation(args, modeltype)
 
 '''
 # train or predict

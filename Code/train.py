@@ -6,12 +6,11 @@ Created on Sun Nov 26 22:42:01 2017
 """
 
 import bz2
-import datetime
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import math
-import model
+import model as models
 import os
 import pickle
 import time
@@ -20,7 +19,6 @@ import torch.nn as nn
 import warnings
 from torch.autograd import Variable
 from sklearn.metrics import roc_auc_score
-import pdb
 
 warnings.filterwarnings("ignore")
 
@@ -66,14 +64,18 @@ def train(args, model, lr, weight_decay):
     plot_losses = []
     print_loss_total = 0    # Reset every args.log_interval
     plot_loss_total = 0     # Reset every args.plot_interval
-    model_optimizer = torch.optim.SGD(model.parameters(), lr = lr, weight_decay = weight_decay)
+    model_optimizer = torch.optim.SGD(model.parameters(), lr = lr, 
+                                      weight_decay = weight_decay)
     weight = torch.Tensor([[args.imbalance_factor, 1]])
     criterion = nn.CrossEntropyLoss(weight) #, ignore_index = 0)
-    iter = 1
+    iter = 0
     seen_bidids = set()
+    batch_loss = Variable(torch.FloatTensor([0]))
     while iter < args.epochs:
         print('iteration number:', iter)
-        for date in dates:     
+        for date in dates:
+            if iter == args.epochs: 
+                break
             filepath = '../Data/training3rd/imp.' + date + '.txt.bz2'
             with bz2.BZ2File(filepath) as f:
                 for line in f:
@@ -81,25 +83,34 @@ def train(args, model, lr, weight_decay):
                     if line[dicts[1]['bidid']] in dicts[0][1]:
                         continue
                     true_label = 1 if line[dicts[1]['bidid']] in dicts[0][0] else 0
-                    if (pos_count == 0 or float(neg_count) / pos_count > args.imbalance_factor) and true_label == 0:
+                    if (pos_count == 0 \
+                            or float(neg_count) / pos_count > args.imbalance_factor) \
+                            and true_label == 0:
                         continue
                     elif true_label == 0:
                         neg_count += 1
                     else:
                         pos_count += 1
                     seen_bidids.add(line[dicts[1]['bidid']])
-                    model_optimizer.zero_grad()
                     output = model(line, dicts)
                     loss = criterion(output, variable(true_label))
-                    loss.backward()
-                    model_optimizer.step()
+                    batch_loss += loss
                     print_loss_total += loss.data[0]
                     plot_loss_total += loss.data[0]
+                    iter += 1
+                    if iter % args.batch_size == 0:
+                        batch_loss /= args.batch_size
+                        batch_loss.backward()
+                        model_optimizer.step()
+                        batch_loss = Variable(torch.FloatTensor([0]))
+                        model_optimizer.zero_grad()
                     if iter % args.log_interval == 0:
                         print_loss_avg = print_loss_total / args.log_interval
                         print_loss_total = 0
-                        print('%s (%d %d%%) %.10f' % (timeSince(start, float(iter) / args.epochs),
-                                   iter, float(iter) / args.epochs * 100, print_loss_avg))
+                        print('%s (%d %d%%) %.10f' % \
+                              (timeSince(start, float(iter) / args.epochs),
+                               iter, float(iter) / args.epochs * 100, 
+                               print_loss_avg))
                     if iter % args.plot_interval == 0:
                         plot_loss_avg = plot_loss_total / args.plot_interval
                         plot_losses.append(plot_loss_avg)
@@ -113,16 +124,15 @@ def train(args, model, lr, weight_decay):
                         torch.save(model, save_path)
                     if iter == args.epochs:
                         break
-                    iter += 1
     print('pos_count:', pos_count, 'neg_count:', neg_count)
     if not os.path.isdir(args.plot_dir): os.makedirs(args.plot_dir)
     prefix = 'lr_' + str(lr) + '.png'
     save_path = os.path.join(args.plot_dir, prefix)
     showPlot(plot_losses, save_path)
-    return model, seen_bidids
+    return seen_bidids
 
 
-def cross_validation(args):
+def cross_validation(args, modeltype):
     for learning_rate in args.lr:
         print('Learning Rate:', learning_rate)
         for weight_decay in args.weight_decay:
@@ -130,10 +140,15 @@ def cross_validation(args):
             for factor in args.factors:
                 print('Factor: ', factor)
                 args.factor = factor
-                LRmodel = model.LR(args)
-                LRmodel, seen_bidids = train(args, LRmodel, learning_rate, weight_decay)
-                correct, wrong, accuracy, auc = evaluate(args, LRmodel, seen_bidids)
-                print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
+                if modeltype == 'LR':
+                    model = models.LR(args)
+                elif modeltype == 'CNN':
+                    model = models.CNN(args)
+                seen_bidids = train(args, model, learning_rate, weight_decay)
+                correct, wrong, accuracy, auc = evaluate(
+                        args, model, seen_bidids)
+                print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + \
+                    ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
 
 
 def evaluate(args, model, seen_bidids):
@@ -148,21 +163,25 @@ def evaluate(args, model, seen_bidids):
                 if line[dicts[1]['bidid']] in seen_bidids:
                     continue
                 true_label = 1 if line[dicts[1]['bidid']] in dicts[0][1] else 0
-                if (pos_count == 0 or float(neg_count) / pos_count > args.imbalance_factor) and true_label == 0:
+                if (pos_count == 0 \
+                        or float(neg_count) / pos_count > args.imbalance_factor) \
+                        and true_label == 0:
                     continue
                 elif true_label == 0:
                     neg_count += 1
                 else:
                     pos_count += 1
                 true_labels.append(true_label)
-                output = model(line, dicts)
-                predicted_label = 0 if output.data[0][0] >= output.data[0][1] else 1
+                output = model(line, dicts, infer = True)
+                predicted_label = 0 if output.data[0][0] >= output.data[0][1] \
+                    else 1
                 predicted_labels.append(predicted_label)
                 if predicted_label == true_label:
                     correct += 1
                 else:
                     wrong += 1
-    return correct, wrong, float(correct) / (correct + wrong), roc_auc_score(true_labels, predicted_labels)
+    return correct, wrong, float(correct) / (correct + wrong), \
+        roc_auc_score(true_labels, predicted_labels)
 
 
 def evaluatefull(model):
@@ -178,7 +197,7 @@ def evaluatefull(model):
                 line = line.split('\n')[0].split('\t')
                 true_label = 1 if line[dicts[1]['bidid']] in dicts[0] else 0
                 true_labels.append(true_label)
-                output = model(line, dicts)
+                output = model(line, dicts, infer = True)
                 predicted_label = 0 if output.data[0][0] >= output.data[0][1] else 1
                 predicted_labels.append(predicted_label)
                 if predicted_label == true_label:
@@ -186,6 +205,5 @@ def evaluatefull(model):
                 else:
                     wrong += 1
                 iter += 1
-    return correct, wrong, float(correct) / (correct + wrong), roc_auc_score(true_labels, predicted_labels)
-
-
+    return correct, wrong, float(correct) / (correct + wrong), \
+        roc_auc_score(true_labels, predicted_labels)
