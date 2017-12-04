@@ -4,14 +4,13 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import math
-import model
+import sys
+sys.path.append('..')
+import model as models
 import os
 import pickle
 import time
-import torch
-import torch.nn as nn
 import warnings
-from torch.autograd import Variable
 from sklearn.metrics import roc_auc_score
 import xgboost as xgb
 import pdb
@@ -23,35 +22,6 @@ dates = ['201310' + str(i) for i in range(19, 28)]
 alldicts_filepath = "../../Processed Data/alldicts.pkl"
 #clkbidids, key2ind, set_keys, dict_list = pickle.load(open(alldicts_filepath, "rb"))
 dicts = pickle.load(open(alldicts_filepath, "rb"))
-
-
-def asMinutes(s):
-    m = math.floor(s / 60)
-    s -= m * 60
-    return '%dm %ds' % (m, s)
-
-
-def timeSince(since, percent):
-    now = time.time()
-    s = now - since
-    es = s / (percent)
-    rs = es - s
-    return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
-
-
-def showPlot(points, save_path):
-    plt.figure()
-    plt.plot(points)
-    plt.xlabel('Iterations', fontsize=12)
-    plt.ylabel('NLL Loss', fontsize=12)
-    plt.title('NLL Loss vs Number of iterations')
-    plt.grid()
-    plt.savefig(save_path, bbox_inches='tight')
-    plt.close()
-
-
-def variable(x):
-    return Variable(torch.LongTensor([x]))
 
 
 def train(args, Xgmodel, lr, max_depth, num_round):
@@ -100,7 +70,7 @@ def cross_validation(args):
                 for factor in args.factors:
                     print('Factor: ', factor)
                     args.factor = factor
-                    Xgbmodel = model.Xgb(args)
+                    Xgbmodel = models.Xgb(args)
                     bst, seen_bidids = train(args, Xgbmodel, learning_rate, max_depth, num_round)
                     correct, wrong, accuracy, auc = evaluate(args, Xgbmodel, bst, seen_bidids)
                     print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
