@@ -41,7 +41,7 @@ class LR(nn.Module):
         x = torch.cat(x, 1)
         if self.args.static:
             x = Variable(x.data)
-        return self.linear(x)
+        return F.softmax(self.linear(x))
 
 
 class CNN(nn.Module):
@@ -78,7 +78,7 @@ class CNN(nn.Module):
             x = x * self.args.dropout
         else:
             x = self.dropout(x)
-        return self.linear(x)
+        return F.softmax(self.linear(x))
 
     def feature_maps(self, x, convs):
         num_words = x.size(2)

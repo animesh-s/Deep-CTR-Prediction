@@ -11,6 +11,7 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import math
 import model as models
+import numpy as np
 import os
 import pickle
 import time
@@ -19,6 +20,8 @@ import torch.nn as nn
 import warnings
 from torch.autograd import Variable
 from sklearn.metrics import roc_auc_score
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import f1_score
 
 warnings.filterwarnings("ignore")
 
@@ -58,21 +61,23 @@ def variable(x):
     return Variable(torch.LongTensor([x]))
 
 
-def train(args, model, lr, weight_decay):
+def train(args, model):
     pos_count, neg_count = 0, 0
     start = time.time()
     plot_losses = []
     print_loss_total = 0    # Reset every args.log_interval
     plot_loss_total = 0     # Reset every args.plot_interval
-    model_optimizer = torch.optim.SGD(model.parameters(), lr = lr, 
-                                      weight_decay = weight_decay)
-    weight = torch.Tensor([[args.imbalance_factor, 1]])
-    criterion = nn.CrossEntropyLoss(weight) #, ignore_index = 0)
-    iter = 0
+    model_optimizer = torch.optim.SGD(model.parameters(), lr = args.lr, 
+                                      weight_decay = args.weight_decay)
+    #weight = torch.Tensor([[args.imbalance_factor, 1]])
+    #criterion = nn.CrossEntropyLoss(weight) #, ignore_index = 0)
+    iter, epoch = 0, 1
     seen_bidids = set()
     batch_loss = Variable(torch.FloatTensor([0]))
     while iter < args.epochs:
-        print('iteration number:', iter)
+        print('epoch:', epoch)
+        epoch += 1
+        np.random.shuffle(dates)
         for date in dates:
             if iter == args.epochs: 
                 break
@@ -93,7 +98,16 @@ def train(args, model, lr, weight_decay):
                         pos_count += 1
                     seen_bidids.add(line[dicts[1]['bidid']])
                     output = model(line, dicts)
-                    loss = criterion(output, variable(true_label))
+                    #loss = criterion(output, variable(true_label))
+                    predicted_label = 0 if output.data[0][0] > args.threshold \
+                        else 1
+                    if true_label == 0:
+                        loss = (1 - output[0][0])
+                    else:
+                        if output.data[0][0] > args.threshold:
+                            loss = output[0][0] * args.imbalance_factor
+                        else:
+                            loss = Variable(torch.FloatTensor([0]))
                     batch_loss += loss
                     print_loss_total += loss.data[0]
                     plot_loss_total += loss.data[0]
@@ -107,51 +121,81 @@ def train(args, model, lr, weight_decay):
                     if iter % args.log_interval == 0:
                         print_loss_avg = print_loss_total / args.log_interval
                         print_loss_total = 0
-                        print('%s (%d %d%%) %.10f' % \
-                              (timeSince(start, float(iter) / args.epochs),
-                               iter, float(iter) / args.epochs * 100, 
-                               print_loss_avg))
+                        print('Prob(-) %.3f true %d pred %d loss %.5f' % (
+                                output.data[0][0], true_label, predicted_label,
+                                loss.data[0]))
+                        print('%s (%d %d%%) %.10f' % (
+                                timeSince(start, float(iter) / args.epochs),
+                                iter, float(iter) / args.epochs * 100,
+                                print_loss_avg))
+                        """
+                        f = open(filename, 'a')
+                        f.write('%s (%d %d%%) %.10f\n' %(
+                                timeSince(start, float(iter) / args.epochs),
+                                iter, float(iter) / args.epochs * 100,
+                                print_loss_avg))
+                        f.close()
+                        """
                     if iter % args.plot_interval == 0:
                         plot_loss_avg = plot_loss_total / args.plot_interval
                         plot_losses.append(plot_loss_avg)
                         plot_loss_total = 0
                     if iter % args.save_interval == 0:
                         if not os.path.isdir(args.save_dir): os.makedirs(args.save_dir)
-                        lr_save_dir = os.path.join(args.save_dir, 'lr_' + str(lr))
+                        lr_save_dir = os.path.join(args.save_dir, 'lr_' + str(args.lr))
                         if not os.path.isdir(lr_save_dir): os.makedirs(lr_save_dir)
-                        save_prefix = os.path.join(lr_save_dir, 'model_' + str(weight_decay))
+                        save_prefix = os.path.join(lr_save_dir, 'model_' + str(args.weight_decay))
                         save_path = '{}_steps{}.pt'.format(save_prefix, iter)
                         torch.save(model, save_path)
                     if iter == args.epochs:
                         break
     print('pos_count:', pos_count, 'neg_count:', neg_count)
+    """
+    f = open(filename, 'a')
+    f.write('pos_count: %d, neg_count: %d\n' %(pos_count, neg_count))
+    f.close()
+    """
     if not os.path.isdir(args.plot_dir): os.makedirs(args.plot_dir)
-    prefix = 'lr_' + str(lr) + '.png'
+    prefix = 'lr_' + str(args.lr) + '.png'
     save_path = os.path.join(args.plot_dir, prefix)
     showPlot(plot_losses, save_path)
     return seen_bidids
+        
+
+def cross_validation(args):
+    for iter in range(1, args.num_models + 1):
+        args.lr = 10**np.random.uniform(-5, -1)
+        args.weight_decay = 10**np.random.uniform(-5, 1)
+        epoch = 5 #np.random.randint(1, 6)
+        args.epochs = epoch * (args.imbalance_factor + 1) * 2160
+        print('{}, Model: {}, epochs: {}, lr: {:.5f}, wd: {:.5f}'.format(
+                iter, args.modeltype, epoch, args.lr, args.weight_decay))
+        f = open(args.filepath, 'a')
+        f.write('%d, Model: %s, epochs: %d, lr: %.5f, wd: %.5f\n' %(
+                iter, args.modeltype, epoch, args.lr, args.weight_decay))
+        f.close()
+        if args.modeltype == 'LR':
+            model = models.LR(args)
+        elif args.modeltype == 'CNN':
+            model = models.CNN(args)
+        seen_bidids = train(args, model)
+        correct, wrong, accuracy, auc = evaluate(args, model, seen_bidids, True)
+        print('Training Correct: {}, Wrong: {}, Accuracy: {:.5f}, AUC: {:.5f}'
+              .format(correct, wrong, accuracy, auc))
+        f = open(args.filepath, 'a')
+        f.write('Training Correct: %d, Wrong: %d, Accuracy: %.5f, AUC: %.5f\n' 
+                %(correct, wrong, accuracy, auc))
+        f.close()
+        correct, wrong, accuracy, auc = evaluate(args, model, seen_bidids)
+        print('Validation Correct: {}, Wrong: {}, Accuracy: {:.5f}, AUC: {:.5f}'
+              .format(correct, wrong, accuracy, auc))
+        f = open(args.filepath, 'a')
+        f.write('Validation Correct: %d, Wrong: %d, Accuracy: %.5f, AUC: %.5f\n'
+                %(correct, wrong, accuracy, auc))
+        f.close()
 
 
-def cross_validation(args, modeltype):
-    for learning_rate in args.lr:
-        print('Learning Rate:', learning_rate)
-        for weight_decay in args.weight_decay:
-            print('Weight Decay: ', weight_decay)
-            for factor in args.factors:
-                print('Factor: ', factor)
-                args.factor = factor
-                if modeltype == 'LR':
-                    model = models.LR(args)
-                elif modeltype == 'CNN':
-                    model = models.CNN(args)
-                seen_bidids = train(args, model, learning_rate, weight_decay)
-                correct, wrong, accuracy, auc = evaluate(
-                        args, model, seen_bidids)
-                print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + \
-                    ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
-
-
-def evaluate(args, model, seen_bidids):
+def evaluate(args, model, seen_bidids, train = False):
     pos_count, neg_count = 0, 0
     correct, wrong = 0, 0
     true_labels, predicted_labels = [], []
@@ -160,26 +204,38 @@ def evaluate(args, model, seen_bidids):
         with bz2.BZ2File(filepath) as f:
             for line in f:
                 line = line.split('\n')[0].split('\t')
-                if line[dicts[1]['bidid']] in seen_bidids:
-                    continue
-                true_label = 1 if line[dicts[1]['bidid']] in dicts[0][1] else 0
-                if (pos_count == 0 \
-                        or float(neg_count) / pos_count > args.imbalance_factor) \
-                        and true_label == 0:
-                    continue
-                elif true_label == 0:
-                    neg_count += 1
+                if train:
+                    if line[dicts[1]['bidid']] not in seen_bidids:
+                        continue
+                    true_label = 1 if line[dicts[1]['bidid']] in dicts[0][0] else 0
                 else:
-                    pos_count += 1
+                    if line[dicts[1]['bidid']] in seen_bidids:
+                        continue
+                    true_label = 1 if line[dicts[1]['bidid']] in dicts[0][1] else 0
+                    if (pos_count == 0 \
+                            or float(neg_count) / pos_count > args.imbalance_factor) \
+                            and true_label == 0:
+                        continue
+                    elif true_label == 0:
+                        neg_count += 1
+                    else:
+                        pos_count += 1
                 true_labels.append(true_label)
                 output = model(line, dicts, infer = True)
+                predicted_label = 0 if output.data[0][0] > args.threshold else 1
+                """
                 predicted_label = 0 if output.data[0][0] >= output.data[0][1] \
                     else 1
+                """
                 predicted_labels.append(predicted_label)
                 if predicted_label == true_label:
                     correct += 1
                 else:
                     wrong += 1
+    confusion_mat = confusion_matrix(true_labels, predicted_labels)
+    print(confusion_mat)
+    f1 = f1_score(true_labels, predicted_labels, average='weighted')
+    print('f1', f1)
     return correct, wrong, float(correct) / (correct + wrong), \
         roc_auc_score(true_labels, predicted_labels)
 
