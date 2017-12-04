@@ -104,6 +104,36 @@ class CNN(nn.Module):
         return x
 
 
+class  Xgb(nn.Module):
+    def __init__(self, args):
+        super(Xgb, self).__init__()
+        self.args = args
+        factor = args.factor
+        self.ip1_embed = nn.Embedding(256, factor * 8)
+        self.ip2_embed = nn.Embedding(256, factor * 8)
+        self.ip3_embed = nn.Embedding(256, factor * 8)
+        self.regionid_embed = nn.Embedding(35, factor * 6)
+        self.cityid_embed = nn.Embedding(370, factor * 9)
+        self.adexchange_embed = nn.Embedding(9, factor * 4)
+        self.url_embed = nn.Embedding(2, factor * 1)
+        self.aurl_embed = nn.Embedding(2, factor * 1)
+        self.adslotw_embed = nn.Embedding(21, factor * 5)
+        self.adsloth_embed = nn.Embedding(14, factor * 4)
+        self.adslotv_embed = nn.Embedding(7, factor * 3)
+        self.adslotfp_embed = nn.Embedding(275, factor * 9)
+        self.creativeid_embed = nn.Embedding(57, factor * 6)
+        self.bidprice_embed = nn.Embedding(2, factor * 1)
+        self.payprice_embed = nn.Embedding(295, factor * 9)
+        self.userids_embed = nn.Embedding(69, factor * 7)
+        
+    def forward(self, line, dicts, infer = False):
+        x = feature(line, dicts, self)
+        if self.args.static:
+            x = Variable(x.data)
+        x = x.data.numpy()[0]
+        return x
+
+
 def feature(line, dicts, model):
     ip = line[dicts[1]['ip']].split('.')[:-1]
     userids = line[dicts[1]['userids']].split(',')
