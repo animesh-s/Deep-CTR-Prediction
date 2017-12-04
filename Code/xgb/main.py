@@ -5,16 +5,16 @@ import train
 
 parser = argparse.ArgumentParser(description='CTR Predictor')
 # learning
-parser.add_argument('-lr', type=str, default='0.01, 0.05, 0.1, 0.2, 0.4', help='comma-separated learning rates to use for training')
-parser.add_argument('-max-depth', type=str, default='4, 8, 16', help='comma-separated max depth to use for training')
-parser.add_argument('-num-rounds', type=str, default='16, 32, 64', help='comma-separated number of rounds to use for training')
+parser.add_argument('-lr', type=str, default='0.5', help='comma-separated learning rates to use for training')
+parser.add_argument('-max-depth', type=str, default='64', help='comma-separated max depth to use for training')
+parser.add_argument('-num-rounds', type=str, default='32', help='comma-separated number of rounds to use for training')
 parser.add_argument('-epochs', type=int, default=27000, help='number of epochs for train [default: 256]')
 parser.add_argument('-log-interval',  type=int, default=30000,   help='how many steps to wait before logging training status [default: 1]')
 parser.add_argument('-plot-interval',  type=int, default=500,   help='how many steps to wait before plotting training status [default: 1]')
 parser.add_argument('-save-interval', type=int, default=30000, help='how many steps to wait before saving [default:500]')
 parser.add_argument('-save-dir', type=str, default='../Snapshots', help='where to save the snapshots')
 parser.add_argument('-plot-dir', type=str, default='../Plots', help='where to save the plots')
-parser.add_argument('-factors', type=str, default='100, 500, 1000', help='factor for feature embeddings')
+parser.add_argument('-factors', type=str, default='100', help='factor for feature embeddings')
 parser.add_argument('-imbalance-factor', type=int, default=1, help='class imbalance factor for training')
 # model
 parser.add_argument('-static', action='store_true', default=True, help='fix the embedding')
