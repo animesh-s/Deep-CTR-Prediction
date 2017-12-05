@@ -5,6 +5,7 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import math
 import sys
+import numpy as np
 sys.path.append('..')
 import model as models
 import os
@@ -27,7 +28,7 @@ alldicts_filepath = "../../Processed Data/alldicts.pkl"
 dicts = pickle.load(open(alldicts_filepath, "rb"))
 
 
-def train(args, Xgmodel, AEmodel, lr, ae_lr, weight_decay, max_depth, num_round):
+def train(args, Xgmodel, AEmodel):
     pos_count, neg_count = 0, 0
     start = time.time()
     training_samples, training_labels = [], []
@@ -35,7 +36,7 @@ def train(args, Xgmodel, AEmodel, lr, ae_lr, weight_decay, max_depth, num_round)
     iter = 1
     seen_bidids = set()
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(AEmodel.parameters(), lr=ae_lr, weight_decay=weight_decay)
+    optimizer = torch.optim.Adam(AEmodel.parameters(), lr=args.ae_lr, weight_decay=args.weight_decay)
     while iter < args.epochs:
         print('iteration number:', iter)
         for date in dates:     
@@ -57,7 +58,6 @@ def train(args, Xgmodel, AEmodel, lr, ae_lr, weight_decay, max_depth, num_round)
                     training_sample = Variable(torch.FloatTensor(training_sample)).view(1,-1)
                     training_samples.append(training_sample)
                     encoded_output = AEmodel.encode(training_sample)
-                    # pdb.set_trace()
                     output = AEmodel.decode(encoded_output)
                     loss = criterion(output, training_sample)
                     optimizer.zero_grad()
@@ -72,32 +72,37 @@ def train(args, Xgmodel, AEmodel, lr, ae_lr, weight_decay, max_depth, num_round)
         training_sample = AEmodel.encode(training_sample).data[0].numpy()
         training_samples_encoded.append(training_sample)
     dtrain = xgb.DMatrix(training_samples_encoded, training_labels)
-    param = {'max_depth': max_depth, 'eta': lr, 'silent': 1, 'objective': 'multi:softmax', 'num_class': 2}
-    bst = xgb.train(param, dtrain, num_round)
+    param = {'max_depth': args.max_depth, 'eta': args.lr, 'silent': 1, 'objective': 'multi:softmax', 'num_class': 2}
+    bst = xgb.train(param, dtrain, args.num_rounds)
     print('pos_count:', pos_count, 'neg_count:', neg_count)
     return bst, seen_bidids
 
-
 def cross_validation(args):
-    for num_round in args.num_rounds:
-        print('Num Rounds: ', num_round)
-        for learning_rate in args.lr:
-            print('Learning Rate:', learning_rate)
-            for max_depth in args.max_depth:
-                print('Max Depth: ', max_depth)
-                for ae_learning_rate in args.ae_lr:
-                    print('AE Learning Rate: ', ae_learning_rate)
-                    for weight_decay in args.weight_decay:
-                        print('Weight Decay: ', weight_decay)
-                        for factor in args.factors:
-                            print('Factor: ', factor)
-                            args.factor = factor
-                            Xgbmodel = models.Xgb(args)
-                            AEmodel = models.Autoencoder(args)
-                            bst, seen_bidids = train(args, Xgbmodel, AEmodel, learning_rate, ae_learning_rate, weight_decay, max_depth, num_round)
-                            correct, wrong, accuracy, auc = evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids)
-                            print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
-
+    for iter in range(1, args.num_models + 1):
+        args.lr = 10**np.random.uniform(-5, -1)
+        args.max_depth = int(np.random.uniform(30, 100))
+        args.num_rounds = int(np.random.uniform(10, 70))
+        args.ae_lr = 10**np.random.uniform(-5, -1)
+        args.weight_decay = 10**np.random.uniform(-5, -1)
+        args.factor = int(np.random.uniform(90, 110))
+        epoch = 5
+        args.epochs = epoch * (args.imbalance_factor + 1) * 2160
+        print('{}, Model: {}, epochs: {}, lr: {:.5f}, max_depth: {}, num_rounds: {}, ae_lr: {:.5f}, wd: {:.5f}, factor: {}'.format(
+                iter, args.modeltype, epoch, args.lr, args.max_depth, args.num_rounds, args.ae_lr, args.weight_decay, args.factor))
+        f = open(args.filepath, 'a')
+        f.write('%d, Model: %s, epochs: %d, lr: %.5f, max_depth: %d, num_rounds: %d, ae_lr: %.5f, wd: %.5f, factor: %d\n' %(
+                iter, args.modeltype, epoch, args.lr, args.max_depth, args.num_rounds, args.ae_lr, args.weight_decay, args.factor))
+        f.close()
+        Xgbmodel = models.Xgb(args)
+        AEmodel = models.Autoencoder(args)
+        bst, seen_bidids = train(args, Xgbmodel, AEmodel)
+        correct, wrong, accuracy, auc = evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids)
+        print('Validation Correct: {}, Wrong: {}, Accuracy: {:.5f}, AUC: {:.5f}'
+              .format(correct, wrong, accuracy, auc))
+        f = open(args.filepath, 'a')
+        f.write('Validation Correct: %d, Wrong: %d, Accuracy: %.5f, AUC: %.5f\n' 
+                %(correct, wrong, accuracy, auc))
+        f.close()
 
 def evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids):
     pos_count, neg_count = 0, 0
