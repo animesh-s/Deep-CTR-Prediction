@@ -10,7 +10,7 @@ parser.add_argument('-ae-lr', type=str, default='0.0001, 0.001, 0.01', help='com
 parser.add_argument('-weight-decay', type=str, default='0.00001, 0.0001, 0.001', help='comma-separated learning rates for autoencoder to use for training')
 parser.add_argument('-max-depth', type=str, default='32, 64, 128', help='comma-separated max depth to use for training')
 parser.add_argument('-num-rounds', type=str, default='16, 32, 64', help='comma-separated number of rounds to use for training')
-parser.add_argument('-epochs', type=int, default=10, help='number of epochs for train [default: 256]')
+parser.add_argument('-epochs', type=int, default=27000, help='number of epochs for train [default: 256]')
 parser.add_argument('-log-interval',  type=int, default=30000,   help='how many steps to wait before logging training status [default: 1]')
 parser.add_argument('-plot-interval',  type=int, default=500,   help='how many steps to wait before plotting training status [default: 1]')
 parser.add_argument('-save-interval', type=int, default=30000, help='how many steps to wait before saving [default:500]')
