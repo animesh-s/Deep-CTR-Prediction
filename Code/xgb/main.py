@@ -5,9 +5,11 @@ import train
 
 parser = argparse.ArgumentParser(description='CTR Predictor')
 # learning
-parser.add_argument('-lr', type=str, default='0.5', help='comma-separated learning rates to use for training')
-parser.add_argument('-max-depth', type=str, default='64', help='comma-separated max depth to use for training')
-parser.add_argument('-num-rounds', type=str, default='32', help='comma-separated number of rounds to use for training')
+parser.add_argument('-lr', type=str, default='0.4, 0.5, 0.6', help='comma-separated learning rates to use for training')
+parser.add_argument('-ae-lr', type=str, default='0.0001, 0.001, 0.01', help='comma-separated learning rates for autoencoder to use for training')
+parser.add_argument('-weight-decay', type=str, default='0.00001, 0.0001, 0.001', help='comma-separated learning rates for autoencoder to use for training')
+parser.add_argument('-max-depth', type=str, default='32, 64, 128', help='comma-separated max depth to use for training')
+parser.add_argument('-num-rounds', type=str, default='16, 32, 64', help='comma-separated number of rounds to use for training')
 parser.add_argument('-epochs', type=int, default=27000, help='number of epochs for train [default: 256]')
 parser.add_argument('-log-interval',  type=int, default=30000,   help='how many steps to wait before logging training status [default: 1]')
 parser.add_argument('-plot-interval',  type=int, default=500,   help='how many steps to wait before plotting training status [default: 1]')
@@ -28,6 +30,8 @@ args = parser.parse_args()
 
 # update args and print
 args.lr = [float(k) for k in args.lr.split(',')]
+args.ae_lr = [float(k) for k in args.ae_lr.split(',')]
+args.weight_decay = [float(k) for k in args.weight_decay.split(',')]
 args.max_depth = [int(k) for k in args.max_depth.split(',')]
 args.num_rounds = [int(k) for k in args.num_rounds.split(',')]
 args.factors = [int(k) for k in args.factors.split(',')]

@@ -103,6 +103,30 @@ class CNN(nn.Module):
         x = torch.cat(x, 1)
         return x
 
+class  Autoencoder(nn.Module):
+    def __init__(self, args):
+        super(Autoencoder, self).__init__()
+        self.args = args
+        factor = args.factor
+        self.encoder = nn.Sequential(
+            nn.Linear(factor * 89, 4096),
+            nn.ReLU(True),
+            nn.Linear(4096, 2048),
+            nn.ReLU(True), nn.Linear(2048, 1024))
+        self.decoder = nn.Sequential(
+            nn.Linear(1024, 2048),
+            nn.ReLU(True),
+            nn.Linear(2048, 4096),
+            nn.ReLU(True), nn.Linear(4096, factor * 89), nn.Tanh())
+
+    def encode(self, x):
+        x = self.encoder(x)
+        return x
+
+    def decode(self, x):
+        x = self.decoder(x)
+        return x
+
 
 class  Xgb(nn.Module):
     def __init__(self, args):
@@ -175,7 +199,12 @@ def feature(line, dicts, model):
     userids = model.userids_embed(
             Variable(torch.LongTensor(userids)))
     userids = torch.mean(userids, 0).view(1, -1)
-    return (ip1, ip2, ip3, url, aurl, regionid, cityid, adexchange, adslotw,
+    if type(model).__name__ == 'Xgb':
+        return torch.cat((ip1, ip2, ip3, url, aurl, regionid, cityid, 
+                        adexchange, adslotw, adsloth, adslotv, adslotfp,
+                        creativeid, bidprice, payprice, userids), 1)
+    else:
+        return (ip1, ip2, ip3, url, aurl, regionid, cityid, adexchange, adslotw,
             adsloth, adslotv, adslotfp, creativeid, bidprice, payprice, userids)
 
 
