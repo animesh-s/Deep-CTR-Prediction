@@ -91,11 +91,11 @@ def cross_validation(args):
                     Xgbmodel = models.Xgb(args)
                     AEmodel = models.Autoencoder(args)
                     bst, seen_bidids = train(args, Xgbmodel, AEmodel, learning_rate, max_depth, num_round)
-                    correct, wrong, accuracy, auc = evaluate(args, Xgbmodel, bst, seen_bidids)
+                    correct, wrong, accuracy, auc = evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids)
                     print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
 
 
-def evaluate(args, Xgbmodel, bst, seen_bidids):
+def evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids):
     pos_count, neg_count = 0, 0
     correct, wrong = 0, 0
     true_labels, predicted_labels = [], []
