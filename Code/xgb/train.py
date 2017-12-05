@@ -27,7 +27,7 @@ alldicts_filepath = "../../Processed Data/alldicts.pkl"
 dicts = pickle.load(open(alldicts_filepath, "rb"))
 
 
-def train(args, Xgmodel, AEmodel, lr, max_depth, num_round):
+def train(args, Xgmodel, AEmodel, lr, ae_lr, weight_decay, max_depth, num_round):
     pos_count, neg_count = 0, 0
     start = time.time()
     training_samples, training_labels = [], []
@@ -35,7 +35,7 @@ def train(args, Xgmodel, AEmodel, lr, max_depth, num_round):
     iter = 1
     seen_bidids = set()
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(AEmodel.parameters(), lr=1e-3, weight_decay=1e-5)
+    optimizer = torch.optim.Adam(AEmodel.parameters(), lr=ae_lr, weight_decay=weight_decay)
     while iter < args.epochs:
         print('iteration number:', iter)
         for date in dates:     
@@ -85,14 +85,18 @@ def cross_validation(args):
             print('Learning Rate:', learning_rate)
             for max_depth in args.max_depth:
                 print('Max Depth: ', max_depth)
-                for factor in args.factors:
-                    print('Factor: ', factor)
-                    args.factor = factor
-                    Xgbmodel = models.Xgb(args)
-                    AEmodel = models.Autoencoder(args)
-                    bst, seen_bidids = train(args, Xgbmodel, AEmodel, learning_rate, max_depth, num_round)
-                    correct, wrong, accuracy, auc = evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids)
-                    print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
+                for ae_learning_rate in args.ae_lr:
+                    print('AE Learning Rate: ', ae_learning_rate)
+                    for weight_decay in args.weight_decay:
+                        print('Weight Decay: ', weight_decay)
+                        for factor in args.factors:
+                            print('Factor: ', factor)
+                            args.factor = factor
+                            Xgbmodel = models.Xgb(args)
+                            AEmodel = models.Autoencoder(args)
+                            bst, seen_bidids = train(args, Xgbmodel, AEmodel, learning_rate, ae_learning_rate, weight_decay, max_depth, num_round)
+                            correct, wrong, accuracy, auc = evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids)
+                            print 'Correct: ' + str(correct) + ' Wrong: ' + str(wrong) + ' Accuracy: ' + str(accuracy) + ' AUC: ' + str(auc)
 
 
 def evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids):
