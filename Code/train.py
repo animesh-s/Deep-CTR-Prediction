@@ -67,8 +67,8 @@ def train(args, model):
     plot_losses = []
     print_loss_total = 0    # Reset every args.log_interval
     plot_loss_total = 0     # Reset every args.plot_interval
-    model_optimizer = torch.optim.SGD(model.parameters(), lr = args.lr, 
-                                      weight_decay = args.weight_decay)
+    model_optimizer = torch.optim.SGD(
+            model.parameters(), lr = args.lr, weight_decay = args.weight_decay)
     #weight = torch.Tensor([[args.imbalance_factor, 1]])
     #criterion = nn.CrossEntropyLoss(weight) #, ignore_index = 0)
     iter, epoch = 0, 1
@@ -164,6 +164,38 @@ def train(args, model):
 
 def cross_validation(args):
     for iter in range(1, args.num_models + 1):
+        args.kernel_num = np.random.randint(100, 1001)
+        epoch = np.random.randint(1, 11)
+        args.epochs = epoch * (args.imbalance_factor + 1) * 2160
+        print('{}, Model: {}, epochs: {}, kernel_num: {}'.format(
+                iter, args.modeltype, epoch, args.kernel_num))
+        f = open(args.filepath, 'a')
+        f.write('%d, Model: %s, epochs: %d, kernel_num: %d\n' %(
+                iter, args.modeltype, epoch, args.kernel_num))
+        f.close()
+        if args.modeltype == 'LR':
+            model = models.LR(args)
+        elif args.modeltype == 'CNN':
+            model = models.CNN(args)
+        seen_bidids = train(args, model)
+        correct, wrong, auc = evaluate(args, model, seen_bidids, True)
+        print('Training Correct: {}, Wrong: {}, AUC: {:.5f}'
+              .format(correct, wrong, auc))
+        f = open(args.filepath, 'a')
+        f.write('Training Correct: %d, Wrong: %d, AUC: %.5f\n' 
+                %(correct, wrong, auc))
+        f.close()
+        correct, wrong, auc = evaluate(args, model, seen_bidids)
+        print('Validation Correct: {}, Wrong: {}, AUC: {:.5f}'
+              .format(correct, wrong, auc))
+        f = open(args.filepath, 'a')
+        f.write('Validation Correct: %d, Wrong: %d, AUC: %.5f\n'
+                %(correct, wrong, auc))
+        f.close()
+
+
+def cross_validation2(args):
+    for iter in range(1, args.num_models + 1):
         args.lr = 10**np.random.uniform(-5, -1)
         args.weight_decay = 10**np.random.uniform(-5, 1)
         epoch = 5 #np.random.randint(1, 6)
@@ -235,9 +267,10 @@ def evaluate(args, model, seen_bidids, train = False):
     confusion_mat = confusion_matrix(true_labels, predicted_labels)
     print(confusion_mat)
     f1 = f1_score(true_labels, predicted_labels, average='weighted')
-    print('f1', f1)
-    return correct, wrong, float(correct) / (correct + wrong), \
-        roc_auc_score(true_labels, predicted_labels)
+    print('f1 weighted', f1)
+    f1 = f1_score(true_labels, predicted_labels, average='macro')
+    print('f1 macro', f1)
+    return correct, wrong, roc_auc_score(true_labels, predicted_labels)
 
 
 def evaluatefull(model):

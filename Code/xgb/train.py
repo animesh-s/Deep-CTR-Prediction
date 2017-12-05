@@ -1,16 +1,9 @@
 import bz2
-import datetime
-import matplotlib
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
-import math
 import sys
 import numpy as np
 sys.path.append('..')
 import model as models
-import os
 import pickle
-import time
 import warnings
 from sklearn.metrics import roc_auc_score
 import xgboost as xgb
@@ -30,7 +23,6 @@ dicts = pickle.load(open(alldicts_filepath, "rb"))
 
 def train(args, Xgmodel, AEmodel):
     pos_count, neg_count = 0, 0
-    start = time.time()
     training_samples, training_labels = [], []
     training_samples_encoded = []
     iter = 1
@@ -80,11 +72,11 @@ def train(args, Xgmodel, AEmodel):
 def cross_validation(args):
     for iter in range(1, args.num_models + 1):
         args.lr = 10**np.random.uniform(-5, -1)
-        args.max_depth = int(np.random.uniform(30, 100))
-        args.num_rounds = int(np.random.uniform(10, 70))
+        args.max_depth = np.random.randint(30, 101)
+        args.num_rounds = np.random.randint(10, 71)
         args.ae_lr = 10**np.random.uniform(-5, -1)
         args.weight_decay = 10**np.random.uniform(-5, -1)
-        args.factor = int(np.random.uniform(90, 110))
+        args.factor = np.random.randint(90, 111)
         epoch = 5
         args.epochs = epoch * (args.imbalance_factor + 1) * 2160
         print('{}, Model: {}, epochs: {}, lr: {:.5f}, max_depth: {}, num_rounds: {}, ae_lr: {:.5f}, wd: {:.5f}, factor: {}'.format(
