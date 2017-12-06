@@ -166,11 +166,12 @@ def cross_validation(args):
                     iter, args.modeltype, args.lr, args.weight_decay,
                     args.factor))
             f.close()
-        elif args.modeltype == 'CNN':
+        elif args.modeltype in ['CNN', 'CNNDeep']:
             args.embed_dim = np.random.randint(10, 501)
             args.kernel_num = np.random.randint(10, 501)
             args.dropout = np.random.uniform(0, 1)
-            model = models.CNN(args)
+            model = models.CNN(args) if args.modeltype == 'CNN'\
+                else models.CNNDeep(args)
             print('{}, Model: {}, lr: {:.5f}, wd: {:.5f}, embed_dim: {},\
                   kernel_num: {}, dropout: {:.5f}'.format(iter, args.modeltype,
                   args.lr, args.weight_decay, args.embed_dim, args.kernel_num,

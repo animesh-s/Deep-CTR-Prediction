@@ -103,6 +103,75 @@ class CNN(nn.Module):
         x = torch.cat(x, 1)
         return x
 
+
+class CNNDeep(nn.Module):
+    def __init__(self, args):
+        super(CNNDeep, self).__init__()
+        D = args.embed_dim
+        Co = args.kernel_num
+        Ks = args.kernel_sizes
+        self.max_pooling = [8, 4, 2, 1]
+        self.args = args
+        self.ip1_embed = nn.Embedding(256, D)
+        self.ip2_embed = nn.Embedding(256, D)
+        self.ip3_embed = nn.Embedding(256, D)
+        self.regionid_embed = nn.Embedding(35, D)
+        self.cityid_embed = nn.Embedding(370, D)
+        self.adexchange_embed = nn.Embedding(9, D)
+        self.url_embed = nn.Embedding(2, D)
+        self.aurl_embed = nn.Embedding(2, D)
+        self.adslotw_embed = nn.Embedding(21, D)
+        self.adsloth_embed = nn.Embedding(14, D)
+        self.adslotv_embed = nn.Embedding(7, D)
+        self.adslotfp_embed = nn.Embedding(275, D)
+        self.creativeid_embed = nn.Embedding(57, D)
+        self.bidprice_embed = nn.Embedding(2, D)
+        self.payprice_embed = nn.Embedding(295, D)
+        self.userids_embed = nn.Embedding(69, D)
+        self.Ci = 1
+        self.convs1 = nn.ModuleList([nn.Conv2d(
+                self.Ci, Co, (K, D), padding = (K - 1, 0)) for K in Ks])
+        self.convs2 = nn.ModuleList([nn.Conv2d(
+                self.Ci, Co, (K, Co), padding = (K - 1, 0)) for K in Ks])
+        self.convs3 = nn.ModuleList([nn.Conv2d(
+                self.Ci, Co, (K, Co), padding = (K - 1, 0)) for K in Ks])
+        self.convs4 = nn.ModuleList([nn.Conv2d(
+                self.Ci, Co, (K, Co), padding = (K - 1, 0)) for K in Ks])
+        self.dropout = nn.Dropout(args.dropout)
+        self.linear = nn.Linear(Co, 2)
+
+    def forward(self, line, dicts, infer = False):
+        x = self.feature_enc(line, dicts)
+        if infer:
+            x = x * self.args.dropout
+        else:
+            x = self.dropout(x)
+        return F.softmax(self.linear(x))
+
+    def kmax_pooling(self, x, dim, k):
+        index = x.topk(k, dim = dim)[1].sort(dim = dim)[0]
+        return x.gather(dim, index)
+
+    def compute_layer(self, x, convs, max_pooling):
+        x = x.unsqueeze(0).unsqueeze(0)
+        x = [F.relu(conv(x)).squeeze(3).squeeze(0) for conv in convs]
+        x = [torch.t(i) for i in x]
+        x = [self.kmax_pooling(i, 0, max_pooling) for i in x]
+        x = (x[0] + x[1] + x[2] + x[3])/4                       # hardcoded for len(Ks) = 4
+        return x
+
+    def feature_enc(self, line, dicts):
+        x = feature(line, dicts, self)
+        x = torch.cat(x, 0)
+        if self.args.static:
+            x = Variable(x.data)
+        x = self.compute_layer(x, self.convs1, self.max_pooling[0])
+        x = self.compute_layer(x, self.convs2, self.max_pooling[1])
+        x = self.compute_layer(x, self.convs3, self.max_pooling[2])
+        x = self.compute_layer(x, self.convs4, self.max_pooling[3])
+        return x
+
+
 class  Autoencoder(nn.Module):
     def __init__(self, args):
         super(Autoencoder, self).__init__()

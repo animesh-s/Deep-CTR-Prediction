@@ -89,10 +89,10 @@ def cross_validation(args):
         Xgbmodel = models.Xgb(args)
         AEmodel = models.Autoencoder(args)
         bst, seen_bidids = train(args, Xgbmodel, AEmodel)
-        f1, auc = evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids)
-        print('Validation f1: {:.5f}, AUC: {:.5f}'.format(f1, auc))
+        auc = evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids)
+        print('Validation AUC: {:.5f}'.format(auc))
         f = open(args.filepath, 'a')
-        f.write('Validation f1: %.5f, AUC: %.5f\n' %(f1, auc))
+        f.write('Validation AUC: %.5f\n' %(auc))
         f.close()
 
 def evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids):
@@ -120,5 +120,5 @@ def evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids):
                 test_samples.append(test_sample)
     dtest = xgb.DMatrix(test_samples)
     predicted_labels = bst.predict(dtest)
-    f1 = f1_score(true_labels, predicted_labels, average='macro')
-    return f1, roc_auc_score(true_labels, predicted_labels)
+    #f1 = f1_score(true_labels, predicted_labels, average='macro')
+    return roc_auc_score(true_labels, predicted_labels)
