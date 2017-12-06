@@ -6,18 +6,18 @@ import model as models
 import pickle
 import warnings
 from sklearn.metrics import roc_auc_score
+from sklearn.metrics import f1_score
 import xgboost as xgb
 import torch
 from torch import nn
 from torch.autograd import Variable
-import pdb
 
 warnings.filterwarnings("ignore")
 
 
 dates = ['201310' + str(i) for i in range(19, 28)]
 alldicts_filepath = "../../Processed Data/alldicts.pkl"
-#clkbidids, key2ind, set_keys, dict_list = pickle.load(open(alldicts_filepath, "rb"))
+#clkbidids, key2ind, set_keys, dict_list
 dicts = pickle.load(open(alldicts_filepath, "rb"))
 
 
@@ -29,7 +29,7 @@ def train(args, Xgmodel, AEmodel):
     seen_bidids = set()
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(AEmodel.parameters(), lr=args.ae_lr, weight_decay=args.weight_decay)
-    while iter < args.epochs:
+    while iter < args.iterations:
         print('iteration number:', iter)
         for date in dates:     
             filepath = '../../Data/training3rd/imp.' + date + '.txt.bz2'
@@ -57,7 +57,7 @@ def train(args, Xgmodel, AEmodel):
                     optimizer.step()
 
                     training_labels.append(true_label)
-                    if iter == args.epochs:
+                    if iter == args.iterations:
                         break
                     iter += 1
     for training_sample in training_samples:
@@ -77,28 +77,27 @@ def cross_validation(args):
         args.ae_lr = 10**np.random.uniform(-5, -1)
         args.weight_decay = 10**np.random.uniform(-5, -1)
         args.factor = np.random.randint(90, 111)
-        epoch = 5
-        args.epochs = epoch * (args.imbalance_factor + 1) * 2160
-        print('{}, Model: {}, epochs: {}, lr: {:.5f}, max_depth: {}, num_rounds: {}, ae_lr: {:.5f}, wd: {:.5f}, factor: {}'.format(
-                iter, args.modeltype, epoch, args.lr, args.max_depth, args.num_rounds, args.ae_lr, args.weight_decay, args.factor))
+        print('{}, Model: {}, lr: {:.5f}, max_depth: {}, num_rounds: {},\
+              ae_lr: {:.5f}, wd: {:.5f}, factor: {}'.format(iter,
+              args.modeltype, args.lr, args.max_depth, args.num_rounds,
+              args.ae_lr, args.weight_decay, args.factor))
         f = open(args.filepath, 'a')
-        f.write('%d, Model: %s, epochs: %d, lr: %.5f, max_depth: %d, num_rounds: %d, ae_lr: %.5f, wd: %.5f, factor: %d\n' %(
-                iter, args.modeltype, epoch, args.lr, args.max_depth, args.num_rounds, args.ae_lr, args.weight_decay, args.factor))
+        f.write('%d, Model: %s, lr: %.5f, max_depth: %d, num_rounds: %d,\
+                ae_lr: %.5f, wd: %.5f, factor: %d\n' %(iter, args.modeltype,
+                args.lr, args.max_depth, args.num_rounds, args.ae_lr,
+                args.weight_decay, args.factor))
         f.close()
         Xgbmodel = models.Xgb(args)
         AEmodel = models.Autoencoder(args)
         bst, seen_bidids = train(args, Xgbmodel, AEmodel)
-        correct, wrong, accuracy, auc = evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids)
-        print('Validation Correct: {}, Wrong: {}, Accuracy: {:.5f}, AUC: {:.5f}'
-              .format(correct, wrong, accuracy, auc))
+        f1, auc = evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids)
+        print('Validation f1: {:.5f}, AUC: {:.5f}'.format(f1, auc))
         f = open(args.filepath, 'a')
-        f.write('Validation Correct: %d, Wrong: %d, Accuracy: %.5f, AUC: %.5f\n' 
-                %(correct, wrong, accuracy, auc))
+        f.write('Validation f1: %.5f, AUC: %.5f\n' %(f1, auc))
         f.close()
 
 def evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids):
     pos_count, neg_count = 0, 0
-    correct, wrong = 0, 0
     true_labels, predicted_labels = [], []
     test_samples = []
     for date in dates:     
@@ -122,9 +121,5 @@ def evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids):
                 test_samples.append(test_sample)
     dtest = xgb.DMatrix(test_samples)
     predicted_labels = bst.predict(dtest)
-    for true_label, predicted_label in zip(true_labels, predicted_labels):
-        if true_label == predicted_label:
-            correct += 1
-        else:
-            wrong += 1
-    return correct, wrong, float(correct) / (correct + wrong), roc_auc_score(true_labels, predicted_labels)
+    f1 = f1_score(true_labels, predicted_labels, average='macro')
+    return f1, roc_auc_score(true_labels, predicted_labels)

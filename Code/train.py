@@ -16,7 +16,6 @@ import os
 import pickle
 import time
 import torch
-import torch.nn as nn
 import warnings
 from torch.autograd import Variable
 from sklearn.metrics import roc_auc_score
@@ -28,7 +27,7 @@ warnings.filterwarnings("ignore")
 
 dates = ['201310' + str(i) for i in range(19, 28)]
 alldicts_filepath = "../Processed Data/alldicts.pkl"
-#clkbidids, key2ind, set_keys, dict_list = pickle.load(open(alldicts_filepath, "rb"))
+#clkbidids, key2ind, set_keys, dict_list
 dicts = pickle.load(open(alldicts_filepath, "rb"))
 
 
@@ -65,21 +64,25 @@ def train(args, model):
     pos_count, neg_count = 0, 0
     start = time.time()
     plot_losses = []
-    print_loss_total = 0    # Reset every args.log_interval
-    plot_loss_total = 0     # Reset every args.plot_interval
-    model_optimizer = torch.optim.SGD(
-            model.parameters(), lr = args.lr, weight_decay = args.weight_decay)
-    #weight = torch.Tensor([[args.imbalance_factor, 1]])
-    #criterion = nn.CrossEntropyLoss(weight) #, ignore_index = 0)
+    print_loss_total = 0
+    plot_loss_total = 0
+    if args.optimizer == 'SGD':
+        model_optimizer = torch.optim.SGD(
+                model.parameters(), lr = args.lr,
+                weight_decay = args.weight_decay)
+    elif args.optimizer == 'Adam':
+        model_optimizer = torch.optim.Adam(
+                model.parameters(), lr = args.lr,
+                weight_decay = args.weight_decay)
     iter, epoch = 0, 1
     seen_bidids = set()
     batch_loss = Variable(torch.FloatTensor([0]))
-    while iter < args.epochs:
+    while iter < args.iterations:
         print('epoch:', epoch)
         epoch += 1
         np.random.shuffle(dates)
         for date in dates:
-            if iter == args.epochs: 
+            if iter == args.iterations: 
                 break
             filepath = '../Data/training3rd/imp.' + date + '.txt.bz2'
             with bz2.BZ2File(filepath) as f:
@@ -98,7 +101,6 @@ def train(args, model):
                         pos_count += 1
                     seen_bidids.add(line[dicts[1]['bidid']])
                     output = model(line, dicts)
-                    #loss = criterion(output, variable(true_label))
                     predicted_label = 0 if output.data[0][0] > args.threshold \
                         else 1
                     if true_label == 0:
@@ -125,17 +127,9 @@ def train(args, model):
                                 output.data[0][0], true_label, predicted_label,
                                 loss.data[0]))
                         print('%s (%d %d%%) %.10f' % (
-                                timeSince(start, float(iter) / args.epochs),
-                                iter, float(iter) / args.epochs * 100,
+                                timeSince(start, float(iter) / args.iterations),
+                                iter, float(iter) / args.iterations * 100,
                                 print_loss_avg))
-                        """
-                        f = open(filename, 'a')
-                        f.write('%s (%d %d%%) %.10f\n' %(
-                                timeSince(start, float(iter) / args.epochs),
-                                iter, float(iter) / args.epochs * 100,
-                                print_loss_avg))
-                        f.close()
-                        """
                     if iter % args.plot_interval == 0:
                         plot_loss_avg = plot_loss_total / args.plot_interval
                         plot_losses.append(plot_loss_avg)
@@ -147,14 +141,9 @@ def train(args, model):
                         save_prefix = os.path.join(lr_save_dir, 'model_' + str(args.weight_decay))
                         save_path = '{}_steps{}.pt'.format(save_prefix, iter)
                         torch.save(model, save_path)
-                    if iter == args.epochs:
+                    if iter == args.iterations:
                         break
     print('pos_count:', pos_count, 'neg_count:', neg_count)
-    """
-    f = open(filename, 'a')
-    f.write('pos_count: %d, neg_count: %d\n' %(pos_count, neg_count))
-    f.close()
-    """
     if not os.path.isdir(args.plot_dir): os.makedirs(args.plot_dir)
     prefix = 'lr_' + str(args.lr) + '.png'
     save_path = os.path.join(args.plot_dir, prefix)
@@ -164,72 +153,53 @@ def train(args, model):
 
 def cross_validation(args):
     for iter in range(1, args.num_models + 1):
-        args.kernel_num = np.random.randint(100, 1001)
-        epoch = np.random.randint(1, 11)
-        args.epochs = epoch * (args.imbalance_factor + 1) * 2160
-        print('{}, Model: {}, epochs: {}, kernel_num: {}'.format(
-                iter, args.modeltype, epoch, args.kernel_num))
-        f = open(args.filepath, 'a')
-        f.write('%d, Model: %s, epochs: %d, kernel_num: %d\n' %(
-                iter, args.modeltype, epoch, args.kernel_num))
-        f.close()
-        if args.modeltype == 'LR':
-            model = models.LR(args)
-        elif args.modeltype == 'CNN':
-            model = models.CNN(args)
-        seen_bidids = train(args, model)
-        correct, wrong, auc = evaluate(args, model, seen_bidids, True)
-        print('Training Correct: {}, Wrong: {}, AUC: {:.5f}'
-              .format(correct, wrong, auc))
-        f = open(args.filepath, 'a')
-        f.write('Training Correct: %d, Wrong: %d, AUC: %.5f\n' 
-                %(correct, wrong, auc))
-        f.close()
-        correct, wrong, auc = evaluate(args, model, seen_bidids)
-        print('Validation Correct: {}, Wrong: {}, AUC: {:.5f}'
-              .format(correct, wrong, auc))
-        f = open(args.filepath, 'a')
-        f.write('Validation Correct: %d, Wrong: %d, AUC: %.5f\n'
-                %(correct, wrong, auc))
-        f.close()
-
-
-def cross_validation2(args):
-    for iter in range(1, args.num_models + 1):
         args.lr = 10**np.random.uniform(-5, -1)
         args.weight_decay = 10**np.random.uniform(-5, 1)
-        epoch = 5 #np.random.randint(1, 6)
-        args.epochs = epoch * (args.imbalance_factor + 1) * 2160
-        print('{}, Model: {}, epochs: {}, lr: {:.5f}, wd: {:.5f}'.format(
-                iter, args.modeltype, epoch, args.lr, args.weight_decay))
-        f = open(args.filepath, 'a')
-        f.write('%d, Model: %s, epochs: %d, lr: %.5f, wd: %.5f\n' %(
-                iter, args.modeltype, epoch, args.lr, args.weight_decay))
-        f.close()
         if args.modeltype == 'LR':
+            args.factor = np.random.randint(10, 501)
             model = models.LR(args)
+            print('{}, Model: {}, lr: {:.5f}, wd: {:.5f}, factor: {}'
+                  .format(iter, args.modeltype, args.lr, args.weight_decay,
+                          args.factor))
+            f = open(args.filepath, 'a')
+            f.write('%d, Model: %s, lr: %.5f, wd: %.5f, factor: %d\n' %(
+                    iter, args.modeltype, args.lr, args.weight_decay,
+                    args.factor))
+            f.close()
         elif args.modeltype == 'CNN':
+            args.embed_dim = np.random.randint(10, 501)
+            args.kernel_num = np.random.randint(10, 501)
+            args.dropout = np.random.uniform(0, 1)
             model = models.CNN(args)
-        seen_bidids = train(args, model)
-        correct, wrong, accuracy, auc = evaluate(args, model, seen_bidids, True)
-        print('Training Correct: {}, Wrong: {}, Accuracy: {:.5f}, AUC: {:.5f}'
-              .format(correct, wrong, accuracy, auc))
-        f = open(args.filepath, 'a')
-        f.write('Training Correct: %d, Wrong: %d, Accuracy: %.5f, AUC: %.5f\n' 
-                %(correct, wrong, accuracy, auc))
-        f.close()
-        correct, wrong, accuracy, auc = evaluate(args, model, seen_bidids)
-        print('Validation Correct: {}, Wrong: {}, Accuracy: {:.5f}, AUC: {:.5f}'
-              .format(correct, wrong, accuracy, auc))
-        f = open(args.filepath, 'a')
-        f.write('Validation Correct: %d, Wrong: %d, Accuracy: %.5f, AUC: %.5f\n'
-                %(correct, wrong, accuracy, auc))
-        f.close()
+            print('{}, Model: {}, lr: {:.5f}, wd: {:.5f}, embed_dim: {},\
+                  kernel_num: {}, dropout: {:.5f}'.format(iter, args.modeltype,
+                  args.lr, args.weight_decay, args.embed_dim, args.kernel_num,
+                  args.dropout))
+            f = open(args.filepath, 'a')
+            f.write('%d, Model: %s, lr: %.5f, wd: %.5f, embed_dim: %d,\
+                    kernel_num: %d, dropout: %.5f\n' %(iter, args.modeltype,
+                    args.lr, args.weight_decay, args.embed_dim, args.kernel_num,
+                    args.dropout))
+            f.close()
+        train_and_evaluate(args, model)
+
+
+def train_and_evaluate(args, model):
+    seen_bidids = train(args, model)
+    f1, auc = evaluate(args, model, seen_bidids, True)
+    print('Training f1: {:.5f}, AUC: {:.5f}'.format(f1, auc))
+    f = open(args.filepath, 'a')
+    f.write('Training f1: %.5f, AUC: %.5f\n' %(f1, auc))
+    f.close()
+    f1, auc = evaluate(args, model, seen_bidids)
+    print('Validation f1: {:.5f}, AUC: {:.5f}'.format(f1, auc))
+    f = open(args.filepath, 'a')
+    f.write('Validation f1: %.5f, AUC: %.5f\n' %(f1, auc))
+    f.close()
 
 
 def evaluate(args, model, seen_bidids, train = False):
     pos_count, neg_count = 0, 0
-    correct, wrong = 0, 0
     true_labels, predicted_labels = [], []
     for date in dates:     
         filepath = '../Data/training3rd/imp.' + date + '.txt.bz2'
@@ -255,22 +225,11 @@ def evaluate(args, model, seen_bidids, train = False):
                 true_labels.append(true_label)
                 output = model(line, dicts, infer = True)
                 predicted_label = 0 if output.data[0][0] > args.threshold else 1
-                """
-                predicted_label = 0 if output.data[0][0] >= output.data[0][1] \
-                    else 1
-                """
                 predicted_labels.append(predicted_label)
-                if predicted_label == true_label:
-                    correct += 1
-                else:
-                    wrong += 1
     confusion_mat = confusion_matrix(true_labels, predicted_labels)
     print(confusion_mat)
-    f1 = f1_score(true_labels, predicted_labels, average='weighted')
-    print('f1 weighted', f1)
     f1 = f1_score(true_labels, predicted_labels, average='macro')
-    print('f1 macro', f1)
-    return correct, wrong, roc_auc_score(true_labels, predicted_labels)
+    return f1, roc_auc_score(true_labels, predicted_labels)
 
 
 def evaluatefull(model):
