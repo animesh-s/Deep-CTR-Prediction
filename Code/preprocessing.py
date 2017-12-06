@@ -35,10 +35,11 @@ def split_clkbidids(clkbidids):
     ind = np.arange(size)
     np.random.shuffle(ind)
     clkbidids = np.asarray(list(clkbidids))[ind]
-    split = np.split(clkbidids, [int(0.8*size), size])
+    split = np.split(clkbidids, [int(0.8*size), int(0.9*size), size])
     train_clkbidids = set(list(split[0]))
     valid_clkbidids = set(list(split[1]))
-    clkbidids = [train_clkbidids, valid_clkbidids]
+    test_clkbidids = set(list(split[2]))
+    clkbidids = [train_clkbidids, valid_clkbidids, test_clkbidids]   
     return clkbidids
 
 

@@ -13,11 +13,9 @@ from torch.autograd import Variable
 torch.manual_seed(1)
 
 
-class LR(nn.Module):
-    def __init__(self, args):
-        super(LR, self).__init__()
-        self.args = args
-        factor = args.factor
+class VariedEmbedding(nn.Module):
+    def __init__(self, factor):
+        super(VariedEmbedding, self).__init__()
         self.ip1_embed = nn.Embedding(256, factor * 8)
         self.ip2_embed = nn.Embedding(256, factor * 8)
         self.ip3_embed = nn.Embedding(256, factor * 8)
@@ -34,23 +32,11 @@ class LR(nn.Module):
         self.bidprice_embed = nn.Embedding(2, factor * 1)
         self.payprice_embed = nn.Embedding(295, factor * 9)
         self.userids_embed = nn.Embedding(69, factor * 7)
-        self.linear = nn.Linear(factor * 89, 2)
-        
-    def forward(self, line, dicts, infer = False):
-        x = feature(line, dicts, self)
-        x = torch.cat(x, 1)
-        if self.args.static:
-            x = Variable(x.data)
-        return F.softmax(self.linear(x))
 
 
-class CNN(nn.Module):
-    def __init__(self, args):
-        super(CNN, self).__init__()
-        D = args.embed_dim
-        Co = args.kernel_num
-        Ks = args.kernel_sizes
-        self.args = args
+class FixedEmbedding(nn.Module):
+    def __init__(self, D):
+        super(FixedEmbedding, self).__init__()
         self.ip1_embed = nn.Embedding(256, D)
         self.ip2_embed = nn.Embedding(256, D)
         self.ip3_embed = nn.Embedding(256, D)
@@ -67,6 +53,55 @@ class CNN(nn.Module):
         self.bidprice_embed = nn.Embedding(2, D)
         self.payprice_embed = nn.Embedding(295, D)
         self.userids_embed = nn.Embedding(69, D)
+
+
+class MLP(nn.Module):
+    def __init__(self, args):
+        super(MLP, self).__init__()
+        self.args = args
+        factor = args.factor
+        self.embedding = VariedEmbedding(factor)
+        self.mlp = nn.Sequential(
+                nn.Linear(factor * 89, factor * 64),
+                nn.ReLU(True),
+                nn.Linear(factor * 64, factor * 32),
+                nn.ReLU(True),
+                nn.Linear(factor * 32, factor * 16),
+                nn.ReLU(True),
+                nn.Linear(factor * 16, 2),
+                nn.ReLU(True))
+        
+    def forward(self, line, dicts, infer = False):
+        x = feature(line, dicts, self.embedding)
+        x = torch.cat(x, 1)
+        if self.args.static:
+            x = Variable(x.data)
+        return F.softmax(self.mlp(x))
+
+
+class LR(nn.Module):
+    def __init__(self, args):
+        super(LR, self).__init__()
+        self.args = args
+        self.embedding = VariedEmbedding(args.factor)
+        self.linear = nn.Linear(args.factor * 89, 2)
+        
+    def forward(self, line, dicts, infer = False):
+        x = feature(line, dicts, self.embedding)
+        x = torch.cat(x, 1)
+        if self.args.static:
+            x = Variable(x.data)
+        return F.softmax(self.linear(x))
+
+
+class CNN(nn.Module):
+    def __init__(self, args):
+        super(CNN, self).__init__()
+        D = args.embed_dim
+        Co = args.kernel_num
+        Ks = args.kernel_sizes
+        self.args = args
+        self.embedding = FixedEmbedding(D)
         self.Ci = 1
         self.convs = nn.ModuleList([nn.Conv2d(self.Ci, Co, (K, D)) for K in Ks])
         self.dropout = nn.Dropout(args.dropout)
@@ -93,7 +128,7 @@ class CNN(nn.Module):
         return y
 
     def feature_enc(self, line, dicts):
-        x = feature(line, dicts, self)
+        x = feature(line, dicts, self.embedding)
         x = torch.cat(x, 0)
         if self.args.static:
             x = Variable(x.data)
@@ -112,22 +147,7 @@ class CNNDeep(nn.Module):
         Ks = args.kernel_sizes
         self.max_pooling = [8, 4, 2, 1]
         self.args = args
-        self.ip1_embed = nn.Embedding(256, D)
-        self.ip2_embed = nn.Embedding(256, D)
-        self.ip3_embed = nn.Embedding(256, D)
-        self.regionid_embed = nn.Embedding(35, D)
-        self.cityid_embed = nn.Embedding(370, D)
-        self.adexchange_embed = nn.Embedding(9, D)
-        self.url_embed = nn.Embedding(2, D)
-        self.aurl_embed = nn.Embedding(2, D)
-        self.adslotw_embed = nn.Embedding(21, D)
-        self.adsloth_embed = nn.Embedding(14, D)
-        self.adslotv_embed = nn.Embedding(7, D)
-        self.adslotfp_embed = nn.Embedding(275, D)
-        self.creativeid_embed = nn.Embedding(57, D)
-        self.bidprice_embed = nn.Embedding(2, D)
-        self.payprice_embed = nn.Embedding(295, D)
-        self.userids_embed = nn.Embedding(69, D)
+        self.embedding = FixedEmbedding(D)
         self.Ci = 1
         self.convs1 = nn.ModuleList([nn.Conv2d(
                 self.Ci, Co, (K, D), padding = (K - 1, 0)) for K in Ks])
@@ -161,7 +181,7 @@ class CNNDeep(nn.Module):
         return x
 
     def feature_enc(self, line, dicts):
-        x = feature(line, dicts, self)
+        x = feature(line, dicts, self.embedding)
         x = torch.cat(x, 0)
         if self.args.static:
             x = Variable(x.data)
@@ -201,26 +221,11 @@ class  Xgb(nn.Module):
     def __init__(self, args):
         super(Xgb, self).__init__()
         self.args = args
-        factor = args.factor
-        self.ip1_embed = nn.Embedding(256, factor * 8)
-        self.ip2_embed = nn.Embedding(256, factor * 8)
-        self.ip3_embed = nn.Embedding(256, factor * 8)
-        self.regionid_embed = nn.Embedding(35, factor * 6)
-        self.cityid_embed = nn.Embedding(370, factor * 9)
-        self.adexchange_embed = nn.Embedding(9, factor * 4)
-        self.url_embed = nn.Embedding(2, factor * 1)
-        self.aurl_embed = nn.Embedding(2, factor * 1)
-        self.adslotw_embed = nn.Embedding(21, factor * 5)
-        self.adsloth_embed = nn.Embedding(14, factor * 4)
-        self.adslotv_embed = nn.Embedding(7, factor * 3)
-        self.adslotfp_embed = nn.Embedding(275, factor * 9)
-        self.creativeid_embed = nn.Embedding(57, factor * 6)
-        self.bidprice_embed = nn.Embedding(2, factor * 1)
-        self.payprice_embed = nn.Embedding(295, factor * 9)
-        self.userids_embed = nn.Embedding(69, factor * 7)
+        self.embedding = VariedEmbedding(args.factor)
         
     def forward(self, line, dicts, infer = False):
-        x = feature(line, dicts, self)
+        x = feature(line, dicts, self.embedding)
+        x = torch.cat(x, 1)
         if self.args.static:
             x = Variable(x.data)
         x = x.data.numpy()[0]
@@ -268,12 +273,7 @@ def feature(line, dicts, model):
     userids = model.userids_embed(
             Variable(torch.LongTensor(userids)))
     userids = torch.mean(userids, 0).view(1, -1)
-    if type(model).__name__ == 'Xgb':
-        return torch.cat((ip1, ip2, ip3, url, aurl, regionid, cityid, 
-                        adexchange, adslotw, adsloth, adslotv, adslotfp,
-                        creativeid, bidprice, payprice, userids), 1)
-    else:
-        return (ip1, ip2, ip3, url, aurl, regionid, cityid, adexchange, adslotw,
+    return (ip1, ip2, ip3, url, aurl, regionid, cityid, adexchange, adslotw,
             adsloth, adslotv, adslotfp, creativeid, bidprice, payprice, userids)
 
 

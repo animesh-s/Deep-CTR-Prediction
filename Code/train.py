@@ -75,7 +75,7 @@ def train(args, model):
                 model.parameters(), lr = args.lr,
                 weight_decay = args.weight_decay)
     iter, epoch = 0, 1
-    seen_bidids = set()
+    train_seen_bidids = set()
     batch_loss = Variable(torch.FloatTensor([0]))
     while iter < args.iterations:
         print('epoch:', epoch)
@@ -88,7 +88,8 @@ def train(args, model):
             with bz2.BZ2File(filepath) as f:
                 for line in f:
                     line = line.split('\n')[0].split('\t')
-                    if line[dicts[1]['bidid']] in dicts[0][1]:
+                    if line[dicts[1]['bidid']] in dicts[0][1]\
+                        or line[dicts[1]['bidid']] in dicts[0][2]:
                         continue
                     true_label = 1 if line[dicts[1]['bidid']] in dicts[0][0] else 0
                     if (pos_count == 0 \
@@ -99,7 +100,7 @@ def train(args, model):
                         neg_count += 1
                     else:
                         pos_count += 1
-                    seen_bidids.add(line[dicts[1]['bidid']])
+                    train_seen_bidids.add(line[dicts[1]['bidid']])
                     output = model(line, dicts)
                     predicted_label = 0 if output.data[0][0] > args.threshold \
                         else 1
@@ -148,16 +149,17 @@ def train(args, model):
     prefix = 'lr_' + str(args.lr) + '.png'
     save_path = os.path.join(args.plot_dir, prefix)
     showPlot(plot_losses, save_path)
-    return seen_bidids
+    return train_seen_bidids
         
 
 def cross_validation(args):
     for iter in range(1, args.num_models + 1):
         args.lr = 10**np.random.uniform(-5, -1)
         args.weight_decay = 10**np.random.uniform(-5, 1)
-        if args.modeltype == 'LR':
+        if args.modeltype in ['LR', 'MLP']:
             args.factor = np.random.randint(10, 501)
-            model = models.LR(args)
+            model = models.LR(args) if args.modeltype == 'LR'\
+                else models.MLP(args)
             print('{}, Model: {}, lr: {:.5f}, wd: {:.5f}, factor: {}'
                   .format(iter, args.modeltype, args.lr, args.weight_decay,
                           args.factor))
@@ -186,51 +188,72 @@ def cross_validation(args):
 
 
 def train_and_evaluate(args, model):
-    seen_bidids = train(args, model)
-    f1, auc = evaluate(args, model, seen_bidids, True)
+    train_seen_bidids = train(args, model)
+    f1, auc, _ = evaluate(args, model, train_seen_bidids, train = True)
     print('Training f1: {:.5f}, AUC: {:.5f}'.format(f1, auc))
     f = open(args.filepath, 'a')
     f.write('Training f1: %.5f, AUC: %.5f\n' %(f1, auc))
     f.close()
-    f1, auc = evaluate(args, model, seen_bidids)
+    f1, auc, valid_seen_bidids = evaluate(args, model, train_seen_bidids,
+                                          valid = True)
     print('Validation f1: {:.5f}, AUC: {:.5f}'.format(f1, auc))
     f = open(args.filepath, 'a')
     f.write('Validation f1: %.5f, AUC: %.5f\n' %(f1, auc))
     f.close()
+    """
+    f1, auc, _ = evaluate(args, model, train_seen_bidids, valid_seen_bidids,
+                          test = True)
+    print('Test f1: {:.5f}, AUC: {:.5f}'.format(f1, auc))
+    f = open(args.filepath, 'a')
+    f.write('Test f1: %.5f, AUC: %.5f\n' %(f1, auc))
+    f.close()
+    """
 
 
-def evaluate(args, model, seen_bidids, train = False):
+def evaluate(args, model, train_seen_bidids, valid_seen_bidids = set(),
+             train = False, valid = False, test = False):
     pos_count, neg_count = 0, 0
-    true_labels, predicted_labels = [], []
+    true_labels, predicted_labels, predicted_scores = [], [], []
     for date in dates:     
         filepath = '../Data/training3rd/imp.' + date + '.txt.bz2'
         with bz2.BZ2File(filepath) as f:
             for line in f:
                 line = line.split('\n')[0].split('\t')
                 if train:
-                    if line[dicts[1]['bidid']] not in seen_bidids:
+                    if line[dicts[1]['bidid']] not in train_seen_bidids:
                         continue
                     true_label = 1 if line[dicts[1]['bidid']] in dicts[0][0] else 0
                 else:
-                    if line[dicts[1]['bidid']] in seen_bidids:
-                        continue
-                    true_label = 1 if line[dicts[1]['bidid']] in dicts[0][1] else 0
+                    if valid:
+                        if line[dicts[1]['bidid']] in train_seen_bidids:
+                            continue
+                        true_label = 1 if line[dicts[1]['bidid']] in dicts[0][1]\
+                            else 0
+                    elif test:
+                        if line[dicts[1]['bidid']] in train_seen_bidids\
+                            or line[dicts[1]['bidid']] in valid_seen_bidids:
+                            continue
+                        true_label = 1 if line[dicts[1]['bidid']] in dicts[0][2]\
+                            else 0
                     if (pos_count == 0 \
-                            or float(neg_count) / pos_count > args.imbalance_factor) \
-                            and true_label == 0:
+                        or float(neg_count) / pos_count > args.imbalance_factor)\
+                        and true_label == 0:
                         continue
                     elif true_label == 0:
                         neg_count += 1
                     else:
                         pos_count += 1
+                    if valid:
+                        valid_seen_bidids.add(line[dicts[1]['bidid']])
                 true_labels.append(true_label)
                 output = model(line, dicts, infer = True)
+                predicted_scores.append(output.data[0][1])
                 predicted_label = 0 if output.data[0][0] > args.threshold else 1
                 predicted_labels.append(predicted_label)
     confusion_mat = confusion_matrix(true_labels, predicted_labels)
     print(confusion_mat)
     f1 = f1_score(true_labels, predicted_labels, average='macro')
-    return f1, roc_auc_score(true_labels, predicted_labels)
+    return f1, roc_auc_score(true_labels, predicted_scores), valid_seen_bidids
 
 
 def evaluatefull(model):
