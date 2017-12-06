@@ -55,7 +55,6 @@ def train(args, Xgmodel, AEmodel):
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
-
                     training_labels.append(true_label)
                     if iter == args.iterations:
                         break
@@ -64,7 +63,7 @@ def train(args, Xgmodel, AEmodel):
         training_sample = AEmodel.encode(training_sample).data[0].numpy()
         training_samples_encoded.append(training_sample)
     dtrain = xgb.DMatrix(training_samples_encoded, training_labels)
-    param = {'max_depth': args.max_depth, 'eta': args.lr, 'silent': 1, 'objective': 'multi:softmax', 'num_class': 2}
+    param = {'max_depth': args.max_depth, 'eta': args.lr, 'silent': 1, 'objective': 'binary:logistic'}
     bst = xgb.train(param, dtrain, args.num_rounds)
     print('pos_count:', pos_count, 'neg_count:', neg_count)
     return bst, seen_bidids
