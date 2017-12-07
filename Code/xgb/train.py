@@ -95,11 +95,11 @@ def cross_validation(args):
         f = open(args.filepath, 'a')
         f.write('Validation AUC: %.5f\n' %(auc))
         f.close()
-        auc, _ = evaluate(args, Xgbmodel, AEmodel, bst, train_seen_bidids, valid_seen_bidids, False)
-        print('Test AUC: {:.5f}'.format(auc))
-        f = open(args.filepath, 'a')
-        f.write('Test AUC: %.5f\n' %(auc))
-        f.close()
+        # auc, _ = evaluate(args, Xgbmodel, AEmodel, bst, train_seen_bidids, valid_seen_bidids, False)
+        # print('Test AUC: {:.5f}'.format(auc))
+        # f = open(args.filepath, 'a')
+        # f.write('Test AUC: %.5f\n' %(auc))
+        # f.close()
 
 def evaluate(args, Xgbmodel, AEmodel, bst, train_seen_bidids, valid_seen_bidids = set(), valid = True):
     pos_count, neg_count = 0, 0
