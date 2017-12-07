@@ -26,7 +26,7 @@ def train(args, Xgmodel, AEmodel):
     training_samples, training_labels = [], []
     training_samples_encoded = []
     iter = 1
-    seen_bidids = set()
+    train_seen_bidids = set()
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(AEmodel.parameters(), lr=args.ae_lr, weight_decay=args.weight_decay)
     while iter < args.iterations:
@@ -36,7 +36,8 @@ def train(args, Xgmodel, AEmodel):
             with bz2.BZ2File(filepath) as f:
                 for line in f:
                     line = line.split('\n')[0].split('\t')
-                    if line[dicts[1]['bidid']] in dicts[0][1]:
+                    if line[dicts[1]['bidid']] in dicts[0][1]\
+                        or line[dicts[1]['bidid']] in dicts[0][2]:
                         continue
                     true_label = 1 if line[dicts[1]['bidid']] in dicts[0][0] else 0
                     if (pos_count == 0 or float(neg_count) / pos_count > args.imbalance_factor) and true_label == 0:
@@ -45,7 +46,7 @@ def train(args, Xgmodel, AEmodel):
                         neg_count += 1
                     else:
                         pos_count += 1
-                    seen_bidids.add(line[dicts[1]['bidid']])
+                    train_seen_bidids.add(line[dicts[1]['bidid']])
                     training_sample = Xgmodel(line, dicts)
                     training_sample = Variable(torch.FloatTensor(training_sample)).view(1,-1)
                     training_samples.append(training_sample)
@@ -66,7 +67,7 @@ def train(args, Xgmodel, AEmodel):
     param = {'max_depth': args.max_depth, 'eta': args.lr, 'silent': 1, 'objective': 'binary:logistic'}
     bst = xgb.train(param, dtrain, args.num_rounds)
     print('pos_count:', pos_count, 'neg_count:', neg_count)
-    return bst, seen_bidids
+    return bst, train_seen_bidids
 
 def cross_validation(args):
     for iter in range(1, args.num_models + 1):
@@ -76,26 +77,31 @@ def cross_validation(args):
         args.ae_lr = 10**np.random.uniform(-5, -1)
         args.weight_decay = 10**np.random.uniform(-5, -1)
         args.factor = np.random.randint(90, 111)
-        print('{}, Model: {}, lr: {:.5f}, max_depth: {}, num_rounds: {},\
-              ae_lr: {:.5f}, wd: {:.5f}, factor: {}'.format(iter,
+        print('{}, Model: {}, lr: {:.5f}, max_depth: {}, num_rounds: {},'\
+              ' ae_lr: {:.5f}, wd: {:.5f}, factor: {}'.format(iter,
               args.modeltype, args.lr, args.max_depth, args.num_rounds,
               args.ae_lr, args.weight_decay, args.factor))
         f = open(args.filepath, 'a')
-        f.write('%d, Model: %s, lr: %.5f, max_depth: %d, num_rounds: %d,\
-                ae_lr: %.5f, wd: %.5f, factor: %d\n' %(iter, args.modeltype,
+        f.write('%d, Model: %s, lr: %.5f, max_depth: %d, num_rounds: %d,'\
+                ' ae_lr: %.5f, wd: %.5f, factor: %d\n' %(iter, args.modeltype,
                 args.lr, args.max_depth, args.num_rounds, args.ae_lr,
                 args.weight_decay, args.factor))
         f.close()
         Xgbmodel = models.Xgb(args)
         AEmodel = models.Autoencoder(args)
-        bst, seen_bidids = train(args, Xgbmodel, AEmodel)
-        auc = evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids)
+        bst, train_seen_bidids = train(args, Xgbmodel, AEmodel)
+        auc, valid_seen_bidids = evaluate(args, Xgbmodel, AEmodel, bst, train_seen_bidids)
         print('Validation AUC: {:.5f}'.format(auc))
         f = open(args.filepath, 'a')
         f.write('Validation AUC: %.5f\n' %(auc))
         f.close()
+        auc, _ = evaluate(args, Xgbmodel, AEmodel, bst, train_seen_bidids, valid_seen_bidids, False)
+        print('Test AUC: {:.5f}'.format(auc))
+        f = open(args.filepath, 'a')
+        f.write('Test AUC: %.5f\n' %(auc))
+        f.close()
 
-def evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids):
+def evaluate(args, Xgbmodel, AEmodel, bst, train_seen_bidids, valid_seen_bidids = set(), valid = True):
     pos_count, neg_count = 0, 0
     true_labels, predicted_labels = [], []
     test_samples = []
@@ -104,15 +110,23 @@ def evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids):
         with bz2.BZ2File(filepath) as f:
             for line in f:
                 line = line.split('\n')[0].split('\t')
-                if line[dicts[1]['bidid']] in seen_bidids:
-                    continue
-                true_label = 1 if line[dicts[1]['bidid']] in dicts[0][1] else 0
+                if valid:
+                    if line[dicts[1]['bidid']] in train_seen_bidids:
+                        continue
+                    true_label = 1 if line[dicts[1]['bidid']] in dicts[0][1] else 0
+                else:
+                    if line[dicts[1]['bidid']] in train_seen_bidids\
+                        or line[dicts[1]['bidid']] in valid_seen_bidids:
+                        continue
+                    true_label = 1 if line[dicts[1]['bidid']] in dicts[0][2] else 0
                 if (pos_count == 0 or float(neg_count) / pos_count > args.imbalance_factor) and true_label == 0:
                     continue
                 elif true_label == 0:
                     neg_count += 1
                 else:
                     pos_count += 1
+                if valid:
+                    valid_seen_bidids.add(line[dicts[1]['bidid']])
                 true_labels.append(true_label)
                 test_sample = Xgbmodel(line, dicts)
                 test_sample = Variable(torch.FloatTensor(test_sample)).view(1,-1)
@@ -120,5 +134,4 @@ def evaluate(args, Xgbmodel, AEmodel, bst, seen_bidids):
                 test_samples.append(test_sample)
     dtest = xgb.DMatrix(test_samples)
     predicted_labels = bst.predict(dtest)
-    #f1 = f1_score(true_labels, predicted_labels, average='macro')
-    return roc_auc_score(true_labels, predicted_labels)
+    return roc_auc_score(true_labels, predicted_labels), valid_seen_bidids
