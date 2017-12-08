@@ -21,6 +21,7 @@ from torch.autograd import Variable
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import f1_score
+from sklearn.metrics import roc_curve
 
 warnings.filterwarnings("ignore")
 
@@ -135,20 +136,16 @@ def train(args, model):
                         plot_loss_avg = plot_loss_total / args.plot_interval
                         plot_losses.append(plot_loss_avg)
                         plot_loss_total = 0
-                    if iter % args.save_interval == 0:
-                        if not os.path.isdir(args.save_dir): os.makedirs(args.save_dir)
-                        lr_save_dir = os.path.join(args.save_dir, 'lr_' + str(args.lr))
-                        if not os.path.isdir(lr_save_dir): os.makedirs(lr_save_dir)
-                        save_prefix = os.path.join(lr_save_dir, 'model_' + str(args.weight_decay))
-                        save_path = '{}_steps{}.pt'.format(save_prefix, iter)
-                        torch.save(model, save_path)
                     if iter == args.iterations:
                         break
     print('pos_count:', pos_count, 'neg_count:', neg_count)
-    if not os.path.isdir(args.plot_dir): os.makedirs(args.plot_dir)
-    prefix = 'lr_' + str(args.lr) + '.png'
-    save_path = os.path.join(args.plot_dir, prefix)
-    showPlot(plot_losses, save_path)
+    if not args.cv:
+        if not os.path.isdir(args.save_dir): os.makedirs(args.save_dir)
+        save_path = os.path.join(args.save_dir, 'model.pt')
+        torch.save(model, save_path)
+        if not os.path.isdir(args.plot_dir): os.makedirs(args.plot_dir)
+        save_path = os.path.join(args.plot_dir, 'learning_curve.png')
+        showPlot(plot_losses, save_path)
     return train_seen_bidids
         
 
@@ -157,7 +154,7 @@ def cross_validation(args):
         args.lr = 10**np.random.uniform(-5, -1)
         args.weight_decay = 10**np.random.uniform(-5, 1)
         if args.modeltype in ['LR', 'MLP']:
-            args.factor = np.random.randint(10, 501)
+            args.factor = np.random.randint(90, 111)
             model = models.LR(args) if args.modeltype == 'LR'\
                 else models.MLP(args)
             print('{}, Model: {}, lr: {:.5f}, wd: {:.5f}, factor: {}'
@@ -169,9 +166,9 @@ def cross_validation(args):
                     args.factor))
             f.close()
         elif args.modeltype in ['CNN', 'CNNDeep']:
-            args.embed_dim = np.random.randint(10, 501)
-            args.kernel_num = np.random.randint(10, 501)
-            args.dropout = np.random.uniform(0, 1)
+            args.embed_dim = np.random.randint(90, 111)
+            args.kernel_num = np.random.randint(90, 111)
+            args.dropout = np.random.uniform(0.1, 0.5)
             model = models.CNN(args) if args.modeltype == 'CNN'\
                 else models.CNNDeep(args)
             print('{}, Model: {}, lr: {:.5f}, wd: {:.5f}, embed_dim: {},\
@@ -200,14 +197,12 @@ def train_and_evaluate(args, model):
     f = open(args.filepath, 'a')
     f.write('Validation f1: %.5f, AUC: %.5f\n' %(f1, auc))
     f.close()
-    """
     f1, auc, _ = evaluate(args, model, train_seen_bidids, valid_seen_bidids,
                           test = True)
     print('Test f1: {:.5f}, AUC: {:.5f}'.format(f1, auc))
     f = open(args.filepath, 'a')
     f.write('Test f1: %.5f, AUC: %.5f\n' %(f1, auc))
     f.close()
-    """
 
 
 def evaluate(args, model, train_seen_bidids, valid_seen_bidids = set(),
@@ -253,7 +248,30 @@ def evaluate(args, model, train_seen_bidids, valid_seen_bidids = set(),
     confusion_mat = confusion_matrix(true_labels, predicted_labels)
     print(confusion_mat)
     f1 = f1_score(true_labels, predicted_labels, average='macro')
+    if test:
+        fpr, tpr, _ = roc_curve(true_labels, predicted_scores)
+        f = open(args.filepath, 'a')
+        f.write('fpr\n')
+        for i in fpr:
+            f.write('%.5f,' %(i))
+        f.write('\ntpr\n')
+        for i in tpr:
+            f.write('%.5f,' %(i))
+        f.write('\n')
+        f.close()
     return f1, roc_auc_score(true_labels, predicted_scores), valid_seen_bidids
+
+
+def final_run(args):
+    if args.modeltype == 'LR':
+        model = models.LR(args)
+    elif args.modeltype == 'MLP':
+        model = models.MLP(args)
+    elif args.modeltype == 'CNN':
+        model = models.CNN(args)
+    elif args.modeltype == 'CNNDeep':
+        model = models.CNNDeep(args)
+    train_and_evaluate(args, model)
 
 
 def evaluatefull(model):
