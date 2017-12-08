@@ -28,8 +28,7 @@ warnings.filterwarnings("ignore")
 
 dates = ['201310' + str(i) for i in range(19, 28)]
 alldicts_filepath = "../Processed Data/alldicts.pkl"
-#clkbidids, key2ind, set_keys, dict_list
-dicts = pickle.load(open(alldicts_filepath, "rb"))
+dicts = pickle.load(open(alldicts_filepath, "rb")) #clkbidids, key2ind, set_keys, dict_list
 
 
 def asMinutes(s):
@@ -125,9 +124,6 @@ def train(args, model):
                     if iter % args.log_interval == 0:
                         print_loss_avg = print_loss_total / args.log_interval
                         print_loss_total = 0
-                        print('Prob(-) %.3f true %d pred %d loss %.5f' % (
-                                output.data[0][0], true_label, predicted_label,
-                                loss.data[0]))
                         print('%s (%d %d%%) %.10f' % (
                                 timeSince(start, float(iter) / args.iterations),
                                 iter, float(iter) / args.iterations * 100,
@@ -199,10 +195,11 @@ def train_and_evaluate(args, model):
     f.close()
     f1, auc, _ = evaluate(args, model, train_seen_bidids, valid_seen_bidids,
                           test = True)
-    print('Test f1: {:.5f}, AUC: {:.5f}'.format(f1, auc))
-    f = open(args.filepath, 'a')
-    f.write('Test f1: %.5f, AUC: %.5f\n' %(f1, auc))
-    f.close()
+    if not args.cv:
+        print('Test f1: {:.5f}, AUC: {:.5f}'.format(f1, auc))
+        f = open(args.filepath, 'a')
+        f.write('Test f1: %.5f, AUC: %.5f\n' %(f1, auc))
+        f.close()
 
 
 def evaluate(args, model, train_seen_bidids, valid_seen_bidids = set(),
@@ -246,7 +243,6 @@ def evaluate(args, model, train_seen_bidids, valid_seen_bidids = set(),
                 predicted_label = 0 if output.data[0][0] > args.threshold else 1
                 predicted_labels.append(predicted_label)
     confusion_mat = confusion_matrix(true_labels, predicted_labels)
-    print(confusion_mat)
     f1 = f1_score(true_labels, predicted_labels, average='macro')
     if test:
         fpr, tpr, _ = roc_curve(true_labels, predicted_scores)
@@ -272,28 +268,3 @@ def final_run(args):
     elif args.modeltype == 'CNNDeep':
         model = models.CNNDeep(args)
     train_and_evaluate(args, model)
-
-
-def evaluatefull(model):
-    correct, wrong = 0, 0
-    true_labels, predicted_labels = [], []
-    iter = 1
-    for date in dates:
-        print(date, correct, wrong)
-        filepath = '../Data/training3rd/imp.' + date + '.txt.bz2'
-        with bz2.BZ2File(filepath) as f:
-            for line in f:
-                print(iter)
-                line = line.split('\n')[0].split('\t')
-                true_label = 1 if line[dicts[1]['bidid']] in dicts[0] else 0
-                true_labels.append(true_label)
-                output = model(line, dicts, infer = True)
-                predicted_label = 0 if output.data[0][0] >= output.data[0][1] else 1
-                predicted_labels.append(predicted_label)
-                if predicted_label == true_label:
-                    correct += 1
-                else:
-                    wrong += 1
-                iter += 1
-    return correct, wrong, float(correct) / (correct + wrong), \
-        roc_auc_score(true_labels, predicted_labels)

@@ -9,21 +9,27 @@ import warnings
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_curve
 import xgboost as xgb
+import torch
+from torch import nn
+from torch.autograd import Variable
 
 warnings.filterwarnings("ignore")
 
 
 dates = ['201310' + str(i) for i in range(19, 28)]
 alldicts_filepath = "../../Processed Data/alldicts.pkl"
-#clkbidids, key2ind, set_keys, dict_list
-dicts = pickle.load(open(alldicts_filepath, "rb"))
+dicts = pickle.load(open(alldicts_filepath, "rb")) #clkbidids, key2ind, set_keys, dict_list
 
 
 def train(args, Xgmodel, AEmodel):
     pos_count, neg_count = 0, 0
     training_samples, training_labels = [], []
+    training_samples_encoded = []
     iter = 1
     train_seen_bidids = set()
+    criterion = nn.MSELoss()
+    optimizer = torch.optim.Adam(
+            AEmodel.parameters(), lr=args.ae_lr, weight_decay=args.weight_decay)
     while iter < args.iterations:
         print('iteration number:', iter)
         for date in dates:     
@@ -35,7 +41,9 @@ def train(args, Xgmodel, AEmodel):
                         or line[dicts[1]['bidid']] in dicts[0][2]:
                         continue
                     true_label = 1 if line[dicts[1]['bidid']] in dicts[0][0] else 0
-                    if (pos_count == 0 or float(neg_count) / pos_count > args.imbalance_factor) and true_label == 0:
+                    if (pos_count == 0 \
+                            or float(neg_count) / pos_count > args.imbalance_factor) \
+                            and true_label == 0:
                         continue
                     elif true_label == 0:
                         neg_count += 1
@@ -43,12 +51,22 @@ def train(args, Xgmodel, AEmodel):
                         pos_count += 1
                     train_seen_bidids.add(line[dicts[1]['bidid']])
                     training_sample = Xgmodel(line, dicts)
+                    training_sample = Variable(torch.FloatTensor(training_sample)).view(1,-1)
                     training_samples.append(training_sample)
+                    encoded_output = AEmodel.encode(training_sample)
+                    output = AEmodel.decode(encoded_output)
+                    loss = criterion(output, training_sample)
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
                     training_labels.append(true_label)
                     if iter == args.iterations:
                         break
                     iter += 1
-    dtrain = xgb.DMatrix(training_samples, training_labels)
+    for training_sample in training_samples:
+        training_sample = AEmodel.encode(training_sample).data[0].numpy()
+        training_samples_encoded.append(training_sample)
+    dtrain = xgb.DMatrix(training_samples_encoded, training_labels)
     param = {'max_depth': args.max_depth, 'eta': args.lr, 'silent': 1, 'objective': 'binary:logistic'}
     bst = xgb.train(param, dtrain, args.num_rounds)
     print('pos_count:', pos_count, 'neg_count:', neg_count)
@@ -63,6 +81,8 @@ def cross_validation(args):
         args.lr = 10**np.random.uniform(-5, -1)
         args.max_depth = np.random.randint(1, 31)
         args.num_rounds = np.random.randint(10, 71)
+        args.ae_lr = 10**np.random.uniform(-5, -1)
+        args.weight_decay = 10**np.random.uniform(-5, -1)
         args.factor = np.random.randint(90, 111)
         print('{}, Model: {}, lr: {:.5f}, max_depth: {}, num_rounds: {},'\
               ' ae_lr: {:.5f}, wd: {:.5f}, factor: {}'.format(iter,
@@ -128,6 +148,8 @@ def evaluate(args, Xgbmodel, AEmodel, bst, train_seen_bidids, valid_seen_bidids 
                     valid_seen_bidids.add(line[dicts[1]['bidid']])
                 true_labels.append(true_label)
                 test_sample = Xgbmodel(line, dicts)
+                test_sample = Variable(torch.FloatTensor(test_sample)).view(1,-1)
+                test_sample = AEmodel.encode(test_sample).data[0].numpy()
                 test_samples.append(test_sample)
     dtest = xgb.DMatrix(test_samples)
     predicted_labels = bst.predict(dtest)

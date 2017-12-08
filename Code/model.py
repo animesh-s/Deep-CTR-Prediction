@@ -177,7 +177,7 @@ class CNNDeep(nn.Module):
         x = [F.relu(conv(x)).squeeze(3).squeeze(0) for conv in convs]
         x = [torch.t(i) for i in x]
         x = [self.kmax_pooling(i, 0, max_pooling) for i in x]
-        x = (x[0] + x[1] + x[2] + x[3])/4                       # hardcoded for len(Ks) = 4
+        x = (x[0] + x[1] + x[2] + x[3])/4         # hardcoded for len(Ks) = 4
         return x
 
     def feature_enc(self, line, dicts):
